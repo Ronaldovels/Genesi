@@ -214,6 +214,7 @@ const Register = () => {
               className="genesi-button w-full"
             >
               {isLoading ? 'Criando conta...' : 'Criar Conta'}
+              
             </button>
 
             <div className="text-center">
