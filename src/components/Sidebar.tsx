@@ -1,24 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+<<<<<<< HEAD
 import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useWishes } from '../hooks/useWishes';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Switch } from './ui/switch';
+import { Button } from './ui/button';
+import { Card, CardContent } from './ui/card';
+import { PlusCircle, Bell, Trash2 } from 'lucide-react';
+import { Wish } from '../types';
+import { useToast } from "../hooks/use-toast";
+
+const API_URL = import.meta.env.VITE_API_URL;
+=======
+import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart, PlusCircle, Lightbulb } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Switch } from './ui/switch';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import axios from 'axios';
+>>>>>>> 3658fd0 (Atualizado)
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+<<<<<<< HEAD
+  const { logout, user } = useAuth();
+  const { 
+    wishes, 
+    isLoading: loadingWishes, 
+    error: wishError, 
+    deleteWish, 
+    toggleWishNotification 
+  } = useWishes();
+  const [openWishDialog, setOpenWishDialog] = useState(false);
+=======
+  const { user, logout } = useAuth();
   const [openWishDialog, setOpenWishDialog] = useState(false);
   const [wishes, setWishes] = useState([]);
   const [loadingWishes, setLoadingWishes] = useState(false);
   const [wishError, setWishError] = useState('');
+
+  const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [createAccountError, setCreateAccountError] = useState('');
+>>>>>>> 3658fd0 (Atualizado)
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/plano', icon: PieChart, label: 'Plano' },
     { path: '/futuro', icon: Target, label: 'Futuro' },
     { path: '/investimentos', icon: TrendingUp, label: 'Investimentos' },
+<<<<<<< HEAD
+=======
+    { path: '/insights', icon: Lightbulb, label: 'Insights' },
+>>>>>>> 3658fd0 (Atualizado)
   ];
 
   const integrationItems = [
@@ -30,14 +69,21 @@ const Sidebar = () => {
     { icon: Mic, label: 'Conectar à Alexa', action: () => console.log('Alexa integration') },
   ];
 
+<<<<<<< HEAD
+=======
   const fetchWishes = async () => {
+    if (!user?.whatsapp) {
+      setWishError('Usuário não autenticado.');
+      return;
+    }
     setLoadingWishes(true);
     setWishError('');
     try {
-      const res = await fetch('/api/wishes', { cache: 'no-store' });
+      const API_BASE_URL = import.meta.env.VITE_URL;
+      const res = await fetch(`${API_BASE_URL}/api/wishes/${user.whatsapp}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Erro ao buscar desejos');
       const data = await res.json();
-      setWishes(data.wishes || []);
+      setWishes(data || []);
     } catch (err) {
       setWishError('Erro ao buscar desejos');
     } finally {
@@ -47,8 +93,9 @@ const Sidebar = () => {
 
   useEffect(() => {
     if (openWishDialog) fetchWishes();
-  }, [openWishDialog]);
+  }, [openWishDialog, user]);
 
+>>>>>>> 3658fd0 (Atualizado)
   const handleNavigation = (path: string) => {
     navigate(path);
   };
@@ -58,6 +105,14 @@ const Sidebar = () => {
     navigate('/');
   };
 
+<<<<<<< HEAD
+  const handleToggleNotificado = async (wishId: string, currentValue: boolean) => {
+    await toggleWishNotification(wishId, currentValue);
+  };
+
+  const handleDeleteWish = async (wishId: string) => {
+    await deleteWish(wishId);
+=======
   const handleToggleNotificado = async (wishId, currentValue) => {
     try {
       await fetch(`/api/wishes/${wishId}`, {
@@ -69,6 +124,32 @@ const Sidebar = () => {
     } catch (err) {
       // Pode adicionar um toast de erro se quiser
     }
+  };
+
+  const handleCreateAccount = async () => {
+    if (!user?.id || !newAccountName.trim()) {
+      setCreateAccountError('O nome da conta é obrigatório.');
+      return;
+    }
+    setCreateAccountError('');
+    try {
+      const API_BASE_URL = import.meta.env.VITE_URL;
+      await axios.post(`${API_BASE_URL}/api/accounts`, {
+        userId: user.id,
+        name: newAccountName
+      });
+      setOpenCreateAccountDialog(false);
+      setNewAccountName('');
+      // Idealmente, aqui você invalidaria o cache de contas para o dashboard recarregar
+      // Por enquanto, um reload da página resolveria: window.location.reload();
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        setCreateAccountError(error.response.data.message);
+      } else {
+        setCreateAccountError('Erro ao criar conta.');
+      }
+    }
+>>>>>>> 3658fd0 (Atualizado)
   };
 
   return (
@@ -148,6 +229,40 @@ const Sidebar = () => {
             )}
           </DialogContent>
         </Dialog>
+<<<<<<< HEAD
+=======
+
+        {/* Create Account Dialog Trigger */}
+        <Dialog open={openCreateAccountDialog} onOpenChange={setOpenCreateAccountDialog}>
+          <DialogTrigger asChild>
+            <button className="nav-item w-full" type="button">
+              <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base">Criar Conta</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar Nova Conta</DialogTitle>
+              <DialogDescription>
+                Dê um nome para sua nova conta. Você pode ter no máximo 2 contas.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <Label htmlFor="account-name">Nome da Conta</Label>
+              <Input
+                id="account-name"
+                value={newAccountName}
+                onChange={(e) => setNewAccountName(e.target.value)}
+                placeholder="Ex: Conta de Investimentos"
+              />
+              {createAccountError && <p className="text-red-500 text-sm">{createAccountError}</p>}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreateAccount}>Criar Conta</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+>>>>>>> 3658fd0 (Atualizado)
       </nav>
 
       {/* Integrations */}

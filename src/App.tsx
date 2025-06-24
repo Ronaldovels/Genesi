@@ -1,17 +1,27 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3658fd0 (Atualizado)
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+<<<<<<< HEAD
 import { useState } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+=======
+import { AuthProvider } from "./contexts/AuthContext";
+
+// Páginas
+>>>>>>> 3658fd0 (Atualizado)
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Plano from "./pages/Plano";
 import Futuro from "./pages/Futuro";
 import Investimentos from "./pages/Investimentos";
+<<<<<<< HEAD
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 
@@ -42,6 +52,16 @@ const AppRoutes = () => {
   );
 };
 
+=======
+import InsightsPage from "./pages/Insights";
+import NotFound from "./pages/NotFound";
+
+// Componentes
+import ProtectedRoute from "./components/ProtectedRoute";
+
+const queryClient = new QueryClient();
+
+>>>>>>> 3658fd0 (Atualizado)
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -49,7 +69,28 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+<<<<<<< HEAD
           <AppRoutes />
+=======
+          <Routes>
+            {/* Rotas Públicas */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Rotas Protegidas */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/plano" element={<Plano />} />
+              <Route path="/futuro" element={<Futuro />} />
+              <Route path="/investimentos" element={<Investimentos />} />
+              <Route path="/insights" element={<InsightsPage />} />
+            </Route>
+
+            {/* Rota de fallback */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+>>>>>>> 3658fd0 (Atualizado)
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

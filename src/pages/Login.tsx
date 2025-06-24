@@ -1,9 +1,19 @@
-
 import React, { useState } from 'react';
+<<<<<<< HEAD
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Sparkles, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/use-toast';
+=======
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Sparkles, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks/use-toast';
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_URL;
+>>>>>>> 3658fd0 (Atualizado)
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,37 +22,60 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
       toast({
-        title: "Erro",
+<<<<<<< HEAD
+        title: "Atenção",
+=======
+        title: "Erro de Validação",
+>>>>>>> 3658fd0 (Atualizado)
         description: "Por favor, preencha todos os campos.",
         variant: "destructive"
       });
       return;
     }
 
-    setIsLoading(true);
-    
-    const success = await login(email, password);
-    
+<<<<<<< HEAD
+    const success = await login(email, password, setIsLoading);
+
     if (success) {
-      toast({
-        title: "Sucesso!",
-        description: "Login realizado com sucesso.",
+      navigate('/dashboard');
+=======
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+        email,
+        senha: password,
       });
-    } else {
+
+      if (response.status === 200 && response.data.token) {
+        login(response.data.user, response.data.token);
+        
+        toast({
+          title: "Sucesso!",
+          description: "Login realizado com sucesso. Bem-vindo!",
+        });
+        
+      } else {
+        throw new Error('Resposta de autenticação inválida.');
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
       toast({
-        title: "Erro",
-        description: "Email ou senha incorretos.",
+        title: "Erro de Autenticação",
+        description: "Email ou senha incorretos. Por favor, tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
+>>>>>>> 3658fd0 (Atualizado)
     }
-    
-    setIsLoading(false);
   };
 
   return (

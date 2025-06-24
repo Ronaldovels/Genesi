@@ -1,113 +1,306 @@
+<<<<<<< HEAD
+import React from 'react';
+import { DollarSign, PiggyBank, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import MetricCard from '../components/MetricCard';
+import AIInsights from '../components/AIInsights';
+import { useFinanceData } from '../hooks/useFinanceData';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const Dashboard = () => {
+  const { financeData, isLoading, error } = useFinanceData();
+
+  // 1. Se houver um erro, exibe uma mensagem clara.
+  if (error) {
+    return <div className="text-red-500 text-center p-8">Erro ao carregar dados: {error}</div>;
+  }
+
+  // 2. Se estiver carregando ou se os dados ainda não chegaram, exibe uma tela de "esqueleto".
+  // Isso previne 100% dos erros de "cannot read property of undefined".
+  if (isLoading || !financeData) {
+    return (
+      <div className="space-y-6 sm:space-y-8 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-9 w-72 mb-2" />
+            <Skeleton className="h-6 w-96" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-[126px] w-full rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-[200px] w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  // 3. Somente se tudo deu certo, define e renderiza os dados.
+  const metrics = [
+    {
+      title: 'Entradas',
+      value: `R$ ${(financeData.entradas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+=======
 import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import AIInsights from '../components/AIInsights';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const API_BASE_URL = 'https://de6f-2804-7f0-845d-ae81-7821-6145-fcac-655a.ngrok-free.app';
+const API_BASE_URL = import.meta.env.VITE_URL;
+
+interface Account {
+  _id: string;
+  name: string;
+  balance: number;
+}
+
+interface Transaction {
+  _id: string;
+  type: 'entrada' | 'saida';
+  value: number;
+  description: string;
+  date: string;
+}
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, accounts, selectedAccount, setAccounts, setSelectedAccount } = useAuth();
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
   const [entradas, setEntradas] = useState(0);
   const [saidas, setSaidas] = useState(0);
   const [saldo, setSaldo] = useState(0);
-  // Investimentos pode ser implementado depois
-
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  
+  // Lógica para buscar as contas do usuário
   useEffect(() => {
-    console.log('user:', user);
-    if (user && user.whatsapp) {
-      const url = `${API_BASE_URL}/api/finance/saldo/${user.whatsapp}`;
-      console.log('Fazendo requisição para:', url);
-      const fetchData = async () => {
+    const fetchAccounts = async () => {
+      if (user?.id && accounts.length === 0) {
         try {
-          const res = await axios.get(url, {
-            headers: {
-              'ngrok-skip-browser-warning': 'true'
-            }
+          const response = await axios.get(`${API_BASE_URL}/api/accounts/${user.id}`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
           });
-          setEntradas(res.data.entradas || 0);
-          setSaidas(res.data.saidas || 0);
-          setSaldo(res.data.saldo || 0);
-          console.log('Dados recebidos:', res.data);
-        } catch (err) {
+          
+          if (Array.isArray(response.data)) {
+            setAccounts(response.data);
+            if (response.data.length > 0 && !selectedAccount) {
+              setSelectedAccount(response.data[0]);
+            }
+          } else {
+            setAccounts([]);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar contas:", error);
+          setAccounts([]);
+        }
+      }
+    };
+    fetchAccounts();
+  }, [user?.id, accounts.length, setAccounts, selectedAccount, setSelectedAccount]);
+
+  // Lógica para buscar os dados financeiros e transações
+  useEffect(() => {
+    const fetchData = async () => {
+      if (selectedAccount?._id && selectedMonth && selectedYear) {
+        try {
+          const summaryRes = await axios.get(`${API_BASE_URL}/api/finance/summary/${selectedAccount._id}`, {
+            params: { month: selectedMonth, year: selectedYear },
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+          });
+          setEntradas(summaryRes.data.entradas);
+          setSaidas(summaryRes.data.saidas);
+          setSaldo(summaryRes.data.saldoTotal);
+
+          const transactionsRes = await axios.get(`${API_BASE_URL}/api/finance/transactions/${selectedAccount._id}`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+          });
+          setTransactions(transactionsRes.data);
+        } catch (error) {
+          console.error("Erro ao buscar resumo financeiro e transações:", error);
           setEntradas(0);
           setSaidas(0);
           setSaldo(0);
-          console.error('Erro ao buscar dados financeiros:', err);
+          setTransactions([]);
         }
-      };
-      fetchData();
-    }
-  }, [user]);
+      }
+    };
+    fetchData();
+  }, [selectedAccount, selectedMonth, selectedYear]);
 
   const metrics = [
     {
       title: 'Entradas',
-      value: `R$ ${entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      value: `R$ ${(entradas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       change: '+0%',
       trend: 'up' as const,
+>>>>>>> 3658fd0 (Atualizado)
       icon: ArrowUpCircle,
       color: 'text-green-400'
     },
     {
       title: 'Saídas',
-      value: `R$ ${saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+<<<<<<< HEAD
+      value: `R$ ${(financeData.saidas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+=======
+      value: `R$ ${(saidas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       change: '0%',
       trend: 'down' as const,
+>>>>>>> 3658fd0 (Atualizado)
       icon: ArrowDownCircle,
       color: 'text-red-400'
     },
     {
       title: 'Saldo Atual',
-      value: `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+<<<<<<< HEAD
+      value: `R$ ${(financeData.saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+=======
+      value: `R$ ${(saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       change: '+0%',
       trend: 'up' as const,
+>>>>>>> 3658fd0 (Atualizado)
       icon: DollarSign,
       color: 'text-blue-400'
     },
     {
       title: 'Investimentos',
       value: 'R$ 0,00',
+<<<<<<< HEAD
+=======
       change: '+0%',
       trend: 'up' as const,
+>>>>>>> 3658fd0 (Atualizado)
       icon: PiggyBank,
       color: 'text-purple-400'
     }
   ];
+
+<<<<<<< HEAD
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Dashboard Financeiro</h1>
+          <p className="text-white/60 text-sm sm:text-base">Visão geral das suas finanças em tempo real</p>
+        </div>
+      </div>
+
+=======
+  const handleAccountChange = (accountId: string) => {
+    const account = accounts.find(acc => acc._id === accountId);
+    if (account) {
+      setSelectedAccount(account);
+    }
+  };
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Dashboard Financeiro</h1>
-          <p className="text-white/60 text-sm sm:text-base">Visão geral das suas finanças em tempo real</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+            Olá, {user?.name || 'Usuário'}!
+          </h1>
+          <p className="text-white/60 text-sm sm:text-base">Aqui está o resumo da sua conta.</p>
         </div>
-        <div className="genesi-card px-3 py-2 sm:px-4 self-start sm:self-auto">
-          <span className="text-xs sm:text-sm text-white/60">Última atualização: </span>
-          <span className="text-white font-semibold text-xs sm:text-sm">Agora</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Seletor de Mês */}
+          <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}>
+              <SelectTrigger className="w-[140px] bg-slate-900/50 border-white/10">
+                  <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                      <SelectItem key={month} value={String(month)}>{new Date(0, month - 1).toLocaleString('default', { month: 'long' })}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+          {/* Seletor de Ano */}
+          <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}>
+              <SelectTrigger className="w-[100px] bg-slate-900/50 border-white/10">
+                  <SelectValue placeholder="Ano" />
+              </SelectTrigger>
+              <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                      <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+          {/* Seletor de Conta */}
+          <Select value={selectedAccount?._id || ''} onValueChange={handleAccountChange}>
+            <SelectTrigger className="w-[180px] bg-slate-900/50 border-white/10">
+              <SelectValue placeholder="Selecione a conta" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account._id} value={account._id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Metrics Grid */}
+>>>>>>> 3658fd0 (Atualizado)
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {metrics.map((metric, index) => (
           <MetricCard
             key={metric.title}
             title={metric.title}
             value={metric.value}
+<<<<<<< HEAD
+            change="+0%"
+            trend="up"
+=======
             change={metric.change}
             trend={metric.trend}
+>>>>>>> 3658fd0 (Atualizado)
             icon={metric.icon}
             color={metric.color}
             delay={index * 100}
           />
         ))}
       </div>
-
-      {/* AI Insights */}
+<<<<<<< HEAD
       <AIInsights />
+      <div className="genesi-card">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">Ações Rápidas</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <button className="genesi-button bg-genesi-green hover:bg-genesi-green-dark">Adicionar Receita</button>
+          <button className="genesi-button bg-genesi-orange hover:bg-orange-600">Registrar Despesa</button>
+          <button className="genesi-button bg-genesi-purple hover:bg-purple-600 sm:col-span-2 lg:col-span-1">Novo Investimento</button>
+=======
+
+      {/* Recent Transactions */}
+      <div className="genesi-card">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-4 sm:mb-6">Últimas Transações</h2>
+        <div className="space-y-4">
+          {transactions.length > 0 ? (
+            transactions.map((tx) => (
+              <div key={tx._id} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'entrada' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {tx.type === 'entrada' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">{tx.description}</p>
+                    <p className="text-sm text-white/60">{new Date(tx.date).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <p className={`font-semibold ${tx.type === 'entrada' ? 'text-green-400' : 'text-red-400'}`}>
+                  {tx.type === 'entrada' ? '+' : '-'} R$ {tx.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-white/60 text-center py-4">Nenhuma transação encontrada neste período.</p>
+          )}
+        </div>
+      </div>
 
       {/* Quick Actions */}
       <div className="genesi-card">
@@ -122,6 +315,7 @@ const Dashboard = () => {
           <button className="genesi-button bg-genesi-purple hover:bg-purple-600 text-sm sm:text-base py-2 sm:py-3 sm:col-span-2 lg:col-span-1">
             Novo Investimento
           </button>
+>>>>>>> 3658fd0 (Atualizado)
         </div>
       </div>
     </div>
