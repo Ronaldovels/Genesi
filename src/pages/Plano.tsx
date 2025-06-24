@@ -1,33 +1,3 @@
-<<<<<<< HEAD
-
-import React, { useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { Plus, TrendingUp } from 'lucide-react';
-
-const Plano = () => {
-  const [viewMode, setViewMode] = useState<'pie' | 'bar'>('pie');
-  
-  const categoriesData = [
-    { name: 'Alimentação', value: 1200, color: '#3b82f6' },
-    { name: 'Casa', value: 800, color: '#10b981' },
-    { name: 'Transporte', value: 600, color: '#f59e0b' },
-    { name: 'Lazer', value: 400, color: '#ef4444' },
-    { name: 'Mercado', value: 950, color: '#8b5cf6' },
-    { name: 'Cuidados pessoais', value: 300, color: '#06b6d4' },
-    { name: 'Despesas médicas', value: 250, color: '#84cc16' },
-    { name: 'Educação', value: 350, color: '#f97316' },
-    { name: 'Família', value: 200, color: '#ec4899' },
-    { name: 'Pets', value: 150, color: '#6366f1' },
-    { name: 'Prestador de serviço', value: 300, color: '#14b8a6' }
-  ];
-
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-    if (percent < 0.05) return null;
-    
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-=======
 import React, { useState, useEffect, useContext } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieLabelRenderProps } from 'recharts';
 import { Plus, TrendingUp } from 'lucide-react';
@@ -117,7 +87,6 @@ const Plano = () => {
     // @ts-expect-error - Recharts types can be tricky
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     // @ts-expect-error - Recharts types can be tricky
->>>>>>> 3658fd0 (Atualizado)
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
     return (
@@ -125,11 +94,7 @@ const Plano = () => {
         x={x} 
         y={y} 
         fill="white" 
-<<<<<<< HEAD
-        textAnchor={x > cx ? 'start' : 'end'} 
-=======
         textAnchor={x > (cx as number) ? 'start' : 'end'} 
->>>>>>> 3658fd0 (Atualizado)
         dominantBaseline="central"
         fontSize="10"
         fontWeight="bold"
@@ -140,24 +105,14 @@ const Plano = () => {
     );
   };
 
-<<<<<<< HEAD
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0];
-=======
   const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
->>>>>>> 3658fd0 (Atualizado)
       return (
         <div className="genesi-card p-2 sm:p-3 border border-white/20 text-xs sm:text-sm">
           <p className="text-white font-semibold">{data.name}</p>
           <p className="text-genesi-blue">
-<<<<<<< HEAD
-            R$ {data.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-=======
             R$ {(data.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
->>>>>>> 3658fd0 (Atualizado)
           </p>
         </div>
       );
@@ -165,8 +120,6 @@ const Plano = () => {
     return null;
   };
 
-<<<<<<< HEAD
-=======
   const renderContent = () => {
     if (loading) {
       return <Skeleton className="h-80 w-full" />;
@@ -244,7 +197,6 @@ const Plano = () => {
     );
   }
 
->>>>>>> 3658fd0 (Atualizado)
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       {/* Header */}
@@ -278,84 +230,15 @@ const Plano = () => {
       </div>
 
       {/* Chart Container */}
-<<<<<<< HEAD
-      <div className="genesi-card">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
-          <h2 className="text-lg sm:text-xl font-semibold text-white">Gastos por Categoria</h2>
-          <div className="flex items-center gap-2 text-white/60">
-            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-xs sm:text-sm">Últimos 30 dias</span>
-          </div>
-        </div>
-
-        <div className="h-64 sm:h-80 lg:h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            {viewMode === 'pie' ? (
-              <PieChart>
-                <Pie
-                  data={categoriesData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                  outerRadius="80%"
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {categoriesData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            ) : (
-              <BarChart data={categoriesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis 
-                  dataKey="name" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  tick={{ fill: 'white', fontSize: 10 }}
-                  className="sm:text-xs"
-                />
-                <YAxis tick={{ fill: 'white', fontSize: 10 }} className="sm:text-xs" />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-=======
       <div className="genesi-card h-[400px] flex flex-col justify-center">
         {renderContent()}
->>>>>>> 3658fd0 (Atualizado)
       </div>
 
       {/* Categories List */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         <div className="genesi-card">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Categorias Atuais</h3>
-<<<<<<< HEAD
-          <div className="space-y-2 sm:space-y-3">
-            {categoriesData.map((category, index) => (
-              <div key={category.name} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div 
-                    className="w-3 h-3 sm:w-4 sm:h-4 rounded-full"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="text-white text-sm sm:text-base">{category.name}</span>
-                </div>
-                <span className="text-white/80 font-semibold text-sm sm:text-base">
-                  R$ {category.value.toLocaleString('pt-BR')}
-                </span>
-              </div>
-            ))}
-          </div>
-=======
           {renderCategoryList()}
->>>>>>> 3658fd0 (Atualizado)
         </div>
 
         <div className="genesi-card">

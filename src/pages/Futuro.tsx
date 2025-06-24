@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> 3658fd0 (Atualizado)
 import React, { useState } from 'react';
 import { Target, Calendar, DollarSign, Plus, Home, Plane, Briefcase, GraduationCap } from 'lucide-react';
 
