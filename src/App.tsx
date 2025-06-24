@@ -57,7 +57,6 @@ import NotFound from "./pages/NotFound";
 // Componentes
 import ProtectedRoute from "./components/ProtectedRoute";
 
-const queryClient = new QueryClient();
 
 
 const App = () => (
