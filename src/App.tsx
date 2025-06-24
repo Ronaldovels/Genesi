@@ -24,7 +24,6 @@ import Investimentos from "./pages/Investimentos";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
