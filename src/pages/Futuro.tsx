@@ -1,10 +1,10 @@
 
-import { useFinancialCalculations } from '@/hooksfut/useFinancialCalculationsfut';
-import { FinancialChart } from '@/componentsfut/FinancialChart';
-import { ControlSliders } from '@/componentsfut/ControlSliders';
-import { SettingsModal } from '@/componentsfut/SettingsModal';
-import { ProjectModal } from '@/componentsfut/ProjectModal';
-import { ProjectsList } from '@/componentsfut/ProjectsList';
+import { useFinancialCalculations } from '@/hooks/hooksfut/useFinancialCalculationsfut';
+import { FinancialChart } from '@/components/componentsfut/FinancialChart';
+import { ControlSliders } from '@/components/componentsfut/ControlSliders';
+import { SettingsModal } from '@/components/componentsfut/SettingsModal';
+import { ProjectModal } from '@/components/componentsfut/ProjectModal';
+import { ProjectsList } from '@/components/componentsfut/ProjectsList';
 import { toast } from 'sonner';
 
 const Index = () => {
