@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -17,10 +18,6 @@ const Sidebar = () => {
   const [wishes, setWishes] = useState([]);
   const [loadingWishes, setLoadingWishes] = useState(false);
   const [wishError, setWishError] = useState('');
-
-  const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
-  const [newAccountName, setNewAccountName] = useState('');
-  const [createAccountError, setCreateAccountError] = useState('');
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
@@ -82,31 +79,6 @@ const Sidebar = () => {
       fetchWishes(); // Atualiza a lista após alteração
     } catch (err) {
       // Pode adicionar um toast de erro se quiser
-    }
-  };
-
-  const handleCreateAccount = async () => {
-    if (!user?.id || !newAccountName.trim()) {
-      setCreateAccountError('O nome da conta é obrigatório.');
-      return;
-    }
-    setCreateAccountError('');
-    try {
-      const API_BASE_URL = import.meta.env.VITE_URL;
-      await axios.post(`${API_BASE_URL}/api/accounts`, {
-        userId: user.id,
-        name: newAccountName
-      });
-      setOpenCreateAccountDialog(false);
-      setNewAccountName('');
-      // Idealmente, aqui você invalidaria o cache de contas para o dashboard recarregar
-      // Por enquanto, um reload da página resolveria: window.location.reload();
-    } catch (error: any) {
-      if (error.response?.data?.message) {
-        setCreateAccountError(error.response.data.message);
-      } else {
-        setCreateAccountError('Erro ao criar conta.');
-      }
     }
   };
 
@@ -185,37 +157,6 @@ const Sidebar = () => {
                 ))}
               </ul>
             )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Create Account Dialog Trigger */}
-        <Dialog open={openCreateAccountDialog} onOpenChange={setOpenCreateAccountDialog}>
-          <DialogTrigger asChild>
-            <button className="nav-item w-full" type="button">
-              <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-sm sm:text-base">Criar Conta</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Nova Conta</DialogTitle>
-              <DialogDescription>
-                Dê um nome para sua nova conta. Você pode ter no máximo 2 contas.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Label htmlFor="account-name">Nome da Conta</Label>
-              <Input
-                id="account-name"
-                value={newAccountName}
-                onChange={(e) => setNewAccountName(e.target.value)}
-                placeholder="Ex: Conta de Investimentos"
-              />
-              {createAccountError && <p className="text-red-500 text-sm">{createAccountError}</p>}
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateAccount}>Criar Conta</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </nav>
