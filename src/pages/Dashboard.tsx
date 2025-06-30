@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { PlusCircle, Pencil, ArrowUpCircle, ArrowDownCircle, DollarSign, PiggyBank, TrendingUp, TrendingDown } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
-import { useAuth } from '../contexts/AuthContext';
+import { AuthContext } from '../contexts/AuthContext';
 import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/components/ui/select";
 import { TransactionModal } from '../components/TransactionModal';
@@ -24,8 +24,14 @@ interface Transaction {
   date: string;
 }
 
+interface UserCategory {
+  _id: string;
+  name: string;
+}
+
 const Dashboard = () => {
-  const { user, accounts, selectedAccount, setAccounts, setSelectedAccount } = useAuth();
+  const { user, accounts, selectedAccount, setAccounts, setSelectedAccount } = useContext(AuthContext);
+  
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
@@ -34,27 +40,28 @@ const Dashboard = () => {
   const [saldo, setSaldo] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Estados do Modal de Transação
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<'entrada' | 'saida'>('entrada');
   
-  // Estado para o Modal de Edição de Conta
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   
+  const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
+
+  // Garantir que a primeira conta seja selecionada ao carregar
+  useEffect(() => {
+    if (accounts && accounts.length > 0 && !selectedAccount) {
+      setSelectedAccount(accounts[0]);
+    }
+  }, [accounts, selectedAccount, setSelectedAccount]);
+
   // Lógica para buscar as contas do usuário
   useEffect(() => {
     const fetchAccounts = async () => {
-      if (user?.id && accounts.length === 0) {
+      if (user?.id) {
         try {
-          const response = await axios.get(`${API_BASE_URL}/api/accounts/${user.id}`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-          });
-          
+          const response = await axios.get(`${API_BASE_URL}/api/accounts/${user.id}`);
           if (Array.isArray(response.data)) {
             setAccounts(response.data);
-            if (response.data.length > 0 && !selectedAccount) {
-              setSelectedAccount(response.data[0]);
-            }
           } else {
             setAccounts([]);
           }
@@ -65,7 +72,22 @@ const Dashboard = () => {
       }
     };
     fetchAccounts();
-  }, [user?.id, accounts.length, setAccounts, selectedAccount, setSelectedAccount]);
+  }, [user?.id, setAccounts]);
+
+  // Lógica para buscar as categorias do usuário
+  useEffect(() => {
+    const fetchUserCategories = async () => {
+      if (user?.id) {
+        try {
+          const response = await axios.get(`/api/categories/user/${user.id}`);
+          setUserCategories(response.data);
+        } catch (error) {
+          console.error("Erro ao buscar categorias do usuário", error);
+        }
+      }
+    };
+    fetchUserCategories();
+  }, [user]);
 
   // Lógica para buscar dados financeiros
   const fetchFinancialData = useCallback(async () => {
@@ -73,18 +95,16 @@ const Dashboard = () => {
       try {
         const summaryRes = await axios.get(`${API_BASE_URL}/api/finance/summary/${selectedAccount._id}`, {
           params: { month: selectedMonth, year: selectedYear },
-          headers: { 'ngrok-skip-browser-warning': 'true' }
         });
         setEntradas(summaryRes.data.entradas);
         setSaidas(summaryRes.data.saidas);
         setSaldo(summaryRes.data.saldoTotal);
 
-        const transactionsRes = await axios.get(`${API_BASE_URL}/api/finance/transactions/${selectedAccount._id}`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
+        const transactionsRes = await axios.get(`${API_BASE_URL}/api/finance/transactions/${selectedAccount._id}`);
         setTransactions(transactionsRes.data);
       } catch (error) {
         console.error("Erro ao buscar resumo financeiro e transações:", error);
+        toast.error("Não foi possível carregar os dados financeiros da conta selecionada.");
         setEntradas(0);
         setSaidas(0);
         setSaldo(0);
@@ -102,33 +122,23 @@ const Dashboard = () => {
     setTransactionType(type);
     setIsTransactionModalOpen(true);
   };
-  const handleTransactionSubmit = async (data: { value: number; description: string }) => {
+  const handleTransactionSubmit = async (data: { value: number; description: string; categoryId?: string }) => {
     if (!selectedAccount?._id) {
       toast.error('Por favor, selecione uma conta primeiro.');
       return;
     }
     try {
-      const payload = {
-        accountId: selectedAccount._id,
-        type: transactionType,
-        value: data.value,
-        description: data.description,
-      };
-      
+      const payload = { accountId: selectedAccount._id, type: transactionType, ...data };
       await axios.post(`${API_BASE_URL}/api/finance/transaction`, payload);
-      
-      toast.success(`Sua ${transactionType === 'entrada' ? 'receita' : 'despesa'} foi registrada!`);
+      toast.success(`Sua ${transactionType} foi registrada!`);
       setIsTransactionModalOpen(false);
       fetchFinancialData();
-      
     } catch (error) {
-      console.error('Erro ao registrar transação:', error);
-      toast.error('Houve um erro ao registrar. Tente novamente.');
+      toast.error('Houve um erro ao registrar a transação.');
     }
   };
 
-  // --- LÓGICA PARA GERENCIAR CONTAS ---
-
+  // Funções de Gerenciamento de Contas
   const handleCreateAccount = async () => {
     if (!user?.id) return;
     try {
@@ -141,25 +151,20 @@ const Dashboard = () => {
       toast.error(error.response?.data?.message || "Erro ao criar conta.");
     }
   };
-  
   const handleUpdateAccountName = async (newName: string) => {
     if (!selectedAccount) return;
     try {
       const response = await axios.put(`${API_BASE_URL}/api/accounts/${selectedAccount._id}`, { name: newName });
       const updatedAccount = response.data;
-
       const updatedAccounts = accounts.map(acc => acc._id === updatedAccount._id ? updatedAccount : acc);
       setAccounts(updatedAccounts);
-      
       setSelectedAccount(updatedAccount);
-
       toast.success("Nome da conta atualizado!");
       setIsAccountModalOpen(false);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Erro ao editar nome.");
     }
   };
-
   const handleAccountChange = (accountId: string) => {
     if (accountId === 'create_new') {
       handleCreateAccount();
@@ -170,38 +175,10 @@ const Dashboard = () => {
   };
   
   const metrics = [
-    {
-      title: 'Entradas',
-      value: `R$ ${(entradas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      change: '+0%',
-      trend: 'up' as const,
-      icon: ArrowUpCircle,
-      color: 'text-green-400'
-    },
-    {
-      title: 'Saídas',
-      value: `R$ ${(saidas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      change: '0%',
-      trend: 'down' as const,
-      icon: ArrowDownCircle,
-      color: 'text-red-400'
-    },
-    {
-      title: 'Saldo Atual',
-      value: `R$ ${(saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      change: '+0%',
-      trend: 'up' as const,
-      icon: DollarSign,
-      color: 'text-blue-400'
-    },
-    {
-      title: 'Investimentos',
-      value: 'R$ 0,00',
-      change: '+0%',
-      trend: 'up' as const,
-      icon: PiggyBank,
-      color: 'text-purple-400'
-    }
+    { title: 'Entradas', value: `R$ ${(entradas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowUpCircle, color: 'text-green-400', change: '+0%', trend: 'up' as const },
+    { title: 'Saídas', value: `R$ ${(saidas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownCircle, color: 'text-red-400', change: '0%', trend: 'down' as const },
+    { title: 'Saldo Atual', value: `R$ ${(saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-blue-400', change: '+0%', trend: 'up' as const },
+    { title: 'Investimentos', value: 'R$ 0,00', icon: PiggyBank, color: 'text-purple-400', change: '+0%', trend: 'up' as const }
   ];
 
   return (
@@ -215,18 +192,16 @@ const Dashboard = () => {
           <p className="text-white/60 text-sm sm:text-base">Aqui está o resumo da sua conta.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Seletor de Mês */}
           <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}>
             <SelectTrigger className="w-[140px] bg-slate-900/50 border-white/10">
               <SelectValue placeholder="Mês" />
             </SelectTrigger>
             <SelectContent>
               {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                <SelectItem key={month} value={String(month)}>{new Date(0, month - 1).toLocaleString('default', { month: 'long' })}</SelectItem>
+                <SelectItem key={month} value={String(month)}>{new Date(0, month - 1).toLocaleString('pt-BR', { month: 'long' })}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {/* Seletor de Ano */}
           <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}>
             <SelectTrigger className="w-[100px] bg-slate-900/50 border-white/10">
               <SelectValue placeholder="Ano" />
@@ -237,7 +212,7 @@ const Dashboard = () => {
               ))}
             </SelectContent>
           </Select>
-          {/* Seletor de Conta */}
+          
           <Select value={selectedAccount?._id || ''} onValueChange={handleAccountChange}>
             <SelectTrigger className="w-[180px] bg-slate-900/50 border-white/10">
               <SelectValue placeholder="Selecione a conta">
@@ -340,6 +315,7 @@ const Dashboard = () => {
         onClose={() => setIsTransactionModalOpen(false)}
         onSubmit={handleTransactionSubmit}
         type={transactionType}
+        categories={userCategories}
       />
       {selectedAccount && (
         <AccountModal 
