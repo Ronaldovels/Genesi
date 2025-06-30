@@ -22,6 +22,7 @@ const Sidebar = () => {
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/plano', icon: PieChart, label: 'Plano' },
+    { path: '/balanco', icon: Lightbulb, label: 'Balanço' },
     { path: '/futuro', icon: Target, label: 'Futuro' },
     { path: '/investimentos', icon: TrendingUp, label: 'Investimentos' },
     { path: '/insights', icon: Lightbulb, label: 'Insights' },
