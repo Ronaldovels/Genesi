@@ -79,7 +79,7 @@ const Dashboard = () => {
     const fetchUserCategories = async () => {
       if (user?.id) {
         try {
-          const response = await axios.get(`/api/categories/user/${user.id}`);
+          const response = await axios.get(`${API_BASE_URL}/api/categories/user/${user.id}`);
           setUserCategories(response.data);
         } catch (error) {
           console.error("Erro ao buscar categorias do usuário", error);

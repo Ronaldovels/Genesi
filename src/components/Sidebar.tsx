@@ -10,6 +10,9 @@ import { Label } from './ui/label';
 import axios from 'axios';
 import { toast } from 'sonner';
 
+const API_BASE_URL = import.meta.env.VITE_URL;
+
+
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,7 +75,7 @@ const Sidebar = () => {
 
   const handleToggleNotificado = async (wishId, currentValue) => {
     try {
-      await fetch(`/api/wishes/${wishId}`, {
+      await fetch(`${API_BASE_URL}/api/wishes/${wishId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificado: !currentValue })
