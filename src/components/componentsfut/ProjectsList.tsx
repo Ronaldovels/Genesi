@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Project } from '@/types/financial';
-import { Edit, Trash2, Calendar, DollarSign, Home, Plane, Building, Heart, Smartphone, GraduationCap, Gamepad2, Briefcase, Activity } from 'lucide-react';
+import { Project } from '@/types/financialfut';
+import { PlusCircle, Edit, Trash2, Home, Plane, Building, Heart, Smartphone, GraduationCap, Gamepad2, Briefcase, Activity } from 'lucide-react';
+import { EditProjectModal } from './EditProjectModal';
+import { AddContributionModal } from './AddContributionModal';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -17,7 +18,26 @@ type Priority = typeof PRIORITIES[number];
 
 export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: ProjectsListProps) => {
   const [editingProject, setEditingProject] = useState<string | null>(null);
+  const [contributionProject, setContributionProject] = useState<Project | null>(null);
   const [activePriority, setActivePriority] = useState<Priority | 'Todas'>('Todas');
+
+  const projectToEdit = editingProject
+    ? projects.find(p => p.id === editingProject)
+    : undefined;
+
+  const handleSaveChanges = (updates: Partial<Project>) => {
+    if (editingProject) {
+      onUpdate(editingProject, updates);
+      setEditingProject(null);
+    }
+  };
+
+  const handleSaveContribution = (amount: number) => {
+    if (!contributionProject) return;
+    const newAllocatedValue = contributionProject.allocatedValue + amount;
+    onUpdate(contributionProject.id, { allocatedValue: newAllocatedValue });
+    setContributionProject(null);
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -71,12 +91,6 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
     return dateString;
   };
 
-  const getProgressPercentage = (project: Project) => {
-    // Simulação de progresso baseado na data e valor
-    return Math.min(Math.floor(Math.random() * 80) + 10, 100);
-  };
-
-  // Agrupar projetos por prioridade
   const grouped = PRIORITIES.map(priority => {
     const filtered = projects.filter(p => p.priority === priority);
     const total = filtered.reduce((sum, p) => sum + (p.isActive ? p.totalValue : 0), 0);
@@ -84,7 +98,6 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
     return { priority, projects: filtered, total, allActive };
   });
 
-  // Filtro visual
   const prioritiesToShow = activePriority === 'Todas' ? PRIORITIES : [activePriority];
 
   return (
@@ -122,39 +135,40 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
             {/* Lista de projetos da prioridade */}
             <div className="space-y-3">
               {group.projects.map((project) => {
-                const progressPercentage = getProgressPercentage(project);
-                const currentAmount = (project.totalValue * progressPercentage) / 100;
+                const currentAmount = project.allocatedValue;
+                const progressPercentage = project.totalValue > 0
+                  ? (project.allocatedValue / project.totalValue) * 100
+                  : 0;
+
                 return (
-                  <div
-                    key={project.id}
-                    className="bg-slate-900 rounded-lg p-3 border border-slate-700 shadow-sm"
-                  >
+                  <div key={project.id} className="bg-slate-900 rounded-lg p-3 border border-slate-700 shadow-sm">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className={`p-2 rounded-lg ${getTypeColor(project.type)}`}>
                           {getTypeIcon(project.type)}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-medium text-slate-800 text-sm">{project.name}</h3>
-                          </div>
+                          <h3 className="font-medium text-white text-sm">{project.name}</h3>
                           <p className="text-slate-400 text-xs">{formatDate(project.startDate)}</p>
                         </div>
                       </div>
-                      <Switch
-                        checked={project.isActive}
-                        onCheckedChange={() => onToggle(project.id)}
-                      />
+                      <Switch checked={project.isActive} onCheckedChange={() => onToggle(project.id)} />
                     </div>
                     <div className="flex justify-between text-xs text-slate-400 mb-1">
                       <span>Alocado: {formatCurrency(currentAmount)}</span>
-                      <span>{progressPercentage.toFixed(0)}%</span>
+                      <span>{Math.min(100, progressPercentage).toFixed(0)}%</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
-                      <div 
-                        className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${progressPercentage}%` }}
-                      ></div>
+                    <div
+                      className="w-full bg-slate-700 rounded-full h-1.5 mb-2"
+                      // 1. Aqui definimos a variável --progress-width com o valor da sua porcentagem
+                      style={{ '--progress-width': `${Math.min(100, progressPercentage)}%` } as React.CSSProperties}
+                    >
+                      <div className="progress-bar-container">
+                        <div
+                          className="progress-bar-inner"
+                          style={{ width: `${Math.min(100, progressPercentage)}%` }}
+                        ></div>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-500">{formatCurrency(project.totalValue)}</span>
@@ -162,8 +176,18 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setContributionProject(project)}
+                          className="h-7 w-7 p-0 text-emerald-400 hover:text-emerald-500"
+                          title="Adicionar Aporte"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setEditingProject(project.id)}
-                          className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                          title="Editar Projeto"
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
@@ -171,7 +195,8 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
                           variant="ghost"
                           size="sm"
                           onClick={() => onDelete(project.id)}
-                          className="h-7 w-7 p-0 text-red-400 hover:text-red-600"
+                          className="h-7 w-7 p-0 text-red-400 hover:text-red-500"
+                          title="Deletar Projeto"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -190,8 +215,28 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
       {projects.length === 0 && (
         <div className="text-center py-8 text-slate-400">
           <p className="text-base">Nenhum projeto cadastrado ainda.</p>
-          <p className="text-sm">Clique no botão + Nova Meta para adicionar seu primeiro projeto.</p>
+          <p className="text-sm">Clique no botão + Novo Projeto para adicionar seu primeiro projeto.</p>
         </div>
+      )}
+
+      {/* Renderização condicional do modal de Aporte */}
+      {contributionProject && (
+        <AddContributionModal
+          isOpen={!!contributionProject}
+          onClose={() => setContributionProject(null)}
+          onSave={handleSaveContribution}
+          project={contributionProject}
+        />
+      )}
+
+      {/* Renderização condicional do modal de Edição */}
+      {projectToEdit && (
+        <EditProjectModal
+          isOpen={!!projectToEdit}
+          onClose={() => setEditingProject(null)}
+          onSave={handleSaveChanges}
+          project={projectToEdit}
+        />
       )}
     </div>
   );

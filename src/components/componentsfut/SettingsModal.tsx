@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FinancialData } from '@/types/financial';
+import { FinancialData } from '@/types/financialfut';
 import { Settings } from 'lucide-react';
 
 interface SettingsModalProps {

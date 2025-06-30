@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart, PlusCircle, Lightbulb } from 'lucide-react';
+import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart, PlusCircle, Lightbulb, Clipboard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Switch } from './ui/switch';
@@ -25,7 +25,7 @@ const Sidebar = () => {
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/plano', icon: PieChart, label: 'Plano' },
-    { path: '/balanco', icon: Lightbulb, label: 'Balanço' },
+    { path: '/balanco', icon: Clipboard, label: 'Balanço' },
     { path: '/futuro', icon: Target, label: 'Futuro' },
     { path: '/investimentos', icon: TrendingUp, label: 'Investimentos' },
     { path: '/insights', icon: Lightbulb, label: 'Insights' },

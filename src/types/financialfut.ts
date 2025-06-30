@@ -15,6 +15,7 @@ export interface Project {
   type: ProjectType;
   startDate: string;
   totalValue: number;
+  allocatedValue: number;
   isTermProject: boolean;
   hasAirfare: boolean;
   repetition: 'mensal' | 'anual' | 'unica';

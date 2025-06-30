@@ -7,6 +7,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { toast } from 'sonner';
 import { CategoryModal } from '../components/componentsplano/CategoryModal';
 import { LimitModal } from '../components/componentsplano/LimitModal';
+import { CategoryProgressBar } from '../components/componentsplano/CategoryProgressBar'; // NOVO: Import da barra de progresso
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
@@ -41,6 +42,7 @@ const API_BASE_URL = import.meta.env.VITE_URL;
 const getLimitWarning = (spent: number, limit: number) => {
     if (limit === 0) return null;
     const percentage = (spent / limit) * 100;
+    if (percentage > 100) return { message: 'Limite ultrapassado', colorClass: 'text-black-500', iconColor: 'text-black-500'}
     if (percentage > 90) return { message: 'Limite CRÍTICO atingido!', colorClass: 'text-red-500 font-bold', iconColor: 'text-red-500' };
     if (percentage > 80) return { message: 'Atenção: Limite próximo', colorClass: 'text-red-400', iconColor: 'text-red-400' };
     if (percentage > 70) return { message: 'Alerta de gastos', colorClass: 'text-yellow-400', iconColor: 'text-yellow-400' };
@@ -195,42 +197,51 @@ const Plano = () => {
   };
 
   const renderCategoryList = () => {
-    if (loading) return (<div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>);
+    if (loading) return (<div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>);
     if (error || categoriesData.length === 0) return <div className="text-center text-white/60">Nenhuma categoria para exibir.</div>;
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         {categoriesData.map((category) => {
           const warning = getLimitWarning(category.value, category.limit);
           return (
             <div 
-              key={category._id} 
-              onClick={() => openLimitModal(category)} 
+              key={category._id}
+              onClick={() => openLimitModal(category)}
               className="group p-4 rounded-xl transition-all duration-300 flex flex-col hover:scale-[1.02] cursor-pointer"
               style={{ 
                 backgroundColor: category.color.replace(')', ', 0.3)').replace('hsl', 'hsla'),
                 boxShadow: `0 0 15px -5px ${category.color.replace(')', ', 0.6)').replace('hsl', 'hsla')}`
               }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <span className="text-white font-semibold text-base">{category.name}</span>
-                  <div className="text-left mt-1">
-                    <span className="text-white/60 text-xs">
-                      Gasto: R$ {(category.value || 0).toLocaleString('pt-BR')} / Limite: R$ {(category.limit || 0).toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
+              {/* Seção Superior: Nome e Botão de Deletar */}
+              <div className="flex items-start justify-between mb-2">
+                <span className="text-white font-semibold text-base">{category.name}</span>
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteCategory(category._id, category.name);
                   }}
-                  className="ml-4 p-2 rounded-full bg-red-500/0 group-hover:bg-red-500/30 text-white/50 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all duration-300"
+                  className="p-2 -mt-2 -mr-2 rounded-full bg-red-500/0 group-hover:bg-red-500/30 text-white/50 group-hover:text-white opacity-0 group-hover:opacity-100 transition-all duration-300"
                   title={`Remover categoria ${category.name}`}
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
+
+              {/* Seção da Barra de Progresso */}
+              <div className="space-y-1">
+                <CategoryProgressBar
+                  spent={category.value}
+                  limit={category.limit}
+                  color={category.color}
+                />
+                <div className="flex justify-between text-xs text-white/80">
+                  <span>R$ {(category.value || 0).toLocaleString('pt-BR')}</span>
+                  <span>Limite: R$ {(category.limit || 0).toLocaleString('pt-BR')}</span>
+                </div>
+              </div>
+
+              {/* Seção de Aviso (se houver) */}
               {warning && (
                 <div className={`mt-2 flex items-center gap-2 text-xs p-2 rounded-lg bg-black/20 ${warning.colorClass}`}>
                   <AlertTriangle size={14} className={warning.iconColor} />

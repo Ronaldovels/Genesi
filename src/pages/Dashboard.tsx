@@ -2,13 +2,14 @@ import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { PlusCircle, Pencil, ArrowUpCircle, ArrowDownCircle, DollarSign, PiggyBank, TrendingUp, TrendingDown } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import { AuthContext } from '../contexts/AuthContext';
-import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/components/ui/select";
 import { TransactionModal } from '../components/TransactionModal';
 import { AccountModal } from '../components/AccountModal';
+import { InvestmentModal } from '../components/InvestmentModal';
 import { toast } from 'sonner';
+import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_URL;
+const API_BASE_URL = import.meta.env.VITE_URL; 
 
 interface Account {
   _id: string;
@@ -29,6 +30,12 @@ interface UserCategory {
   name: string;
 }
 
+interface InvestmentAccount {
+  _id: string;
+  name: string;
+  totalValue: number;
+}
+
 const Dashboard = () => {
   const { user, accounts, selectedAccount, setAccounts, setSelectedAccount } = useContext(AuthContext);
   
@@ -44,8 +51,10 @@ const Dashboard = () => {
   const [transactionType, setTransactionType] = useState<'entrada' | 'saida'>('entrada');
   
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  
   const [userCategories, setUserCategories] = useState<UserCategory[]>([]);
+  
+  const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
+  const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>([]);
 
   // Garantir que a primeira conta seja selecionada ao carregar
   useEffect(() => {
@@ -87,7 +96,23 @@ const Dashboard = () => {
       }
     };
     fetchUserCategories();
-  }, [user]);
+  }, [user?.id]);
+  
+  // Lógica para buscar as contas de INVESTIMENTO do usuário
+  useEffect(() => {
+    const fetchInvestmentAccounts = async () => {
+      if (user?.id) {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/investment/accounts/${user.id}`);
+          setInvestmentAccounts(response.data);
+        } catch (error) {
+          console.error("Erro ao buscar contas de investimento:", error);
+        }
+      }
+    };
+    fetchInvestmentAccounts();
+  }, [user?.id]);
+
 
   // Lógica para buscar dados financeiros
   const fetchFinancialData = useCallback(async () => {
@@ -173,12 +198,42 @@ const Dashboard = () => {
     const account = accounts.find(acc => acc._id === accountId);
     if (account) setSelectedAccount(account);
   };
+
+  // Funções para controlar o modal de investimento
+  const handleOpenInvestmentModal = () => {
+    if (investmentAccounts.length === 0) {
+      toast.info("Você ainda não tem uma carteira de investimentos.", {
+        description: "Acesse a página de Investimentos para mais detalhes.",
+      });
+      return;
+    }
+    setIsInvestmentModalOpen(true);
+  };
+  const handleInvestmentSubmit = async (data: any) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/investment`, data);
+      toast.success(`Investimento "${data.name}" registrado com sucesso!`);
+      setIsInvestmentModalOpen(false);
+      // No futuro, podemos chamar uma função para atualizar o card de investimentos
+    } catch (error) {
+      toast.error("Ocorreu um erro ao registrar seu investimento.");
+    }
+  };
+
+  // NOVO: Calcula o total investido usando useMemo para otimização
+  const totalInvested = React.useMemo(() => {
+    if (!investmentAccounts || investmentAccounts.length === 0) {
+      return 0;
+    }
+    // A API que busca as contas precisa retornar o campo 'totalValue' em cada conta
+    return investmentAccounts.reduce((sum, account) => sum + (account.totalValue || 0), 0);
+  }, [investmentAccounts]);
   
   const metrics = [
     { title: 'Entradas', value: `R$ ${(entradas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowUpCircle, color: 'text-green-400', change: '+0%', trend: 'up' as const },
     { title: 'Saídas', value: `R$ ${(saidas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ArrowDownCircle, color: 'text-red-400', change: '0%', trend: 'down' as const },
     { title: 'Saldo Atual', value: `R$ ${(saldo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-blue-400', change: '+0%', trend: 'up' as const },
-    { title: 'Investimentos', value: 'R$ 0,00', icon: PiggyBank, color: 'text-purple-400', change: '+0%', trend: 'up' as const }
+     { title: 'Investimentos', value: `R$ ${(totalInvested || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: PiggyBank, color: 'text-purple-400', change: '+0%', trend: 'up' as const }
   ];
 
   return (
@@ -303,7 +358,10 @@ const Dashboard = () => {
           >
             Registrar Despesa
           </button>
-          <button className="genesi-button bg-genesi-purple hover:bg-purple-600 text-sm sm:text-base py-2 sm:py-3 sm:col-span-2 lg:col-span-1">
+          <button 
+            onClick={handleOpenInvestmentModal}
+            className="genesi-button bg-genesi-purple hover:bg-purple-600 text-sm sm:text-base py-2 sm:py-3 sm:col-span-2 lg:col-span-1"
+          >
             Novo Investimento
           </button>
         </div>
@@ -325,6 +383,12 @@ const Dashboard = () => {
           accountName={selectedAccount.name}
         />
       )}
+      <InvestmentModal 
+        isOpen={isInvestmentModalOpen}
+        onClose={() => setIsInvestmentModalOpen(false)}
+        onSubmit={handleInvestmentSubmit}
+        investmentAccounts={investmentAccounts}
+      />
     </div>
   );
 };

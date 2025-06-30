@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FinancialData } from '@/types/financial';
+import { FinancialData } from '@/types/financialfut';
 
 // Interface das props do componente principal
 interface ControlSlidersProps {
   data: FinancialData;
   onUpdate: (updates: Partial<FinancialData>) => void;
+  finalPatrimony: number; // Adicione esta linha (pode usar 'any', mas 'number' é melhor)
+  monthlyNeeded: number;  // Adicione esta linha também
 }
 
 // Interface das props do nosso sub-componente

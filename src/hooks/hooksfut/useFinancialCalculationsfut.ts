@@ -1,7 +1,15 @@
-import { useState, useMemo } from 'react';
-import { FinancialData, Project, ChartData } from '@/types/financial';
+import { useState, useMemo, useEffect, useContext } from 'react';
+import { FinancialData, Project, ChartData } from '@/types/financialfut';
+import { AuthContext } from '@/contexts/AuthContext';
+import axios from 'axios'
+import { toast } from 'sonner';
+
+
+const API_BASE_URL = import.meta.env.VITE_URL; 
+
 
 export const useFinancialCalculations = () => {
+  // Estado dos dados financeiros principais (continua local)
   const [financialData, setFinancialData] = useState<FinancialData>({
     currentAge: 22,
     retirementAge: 51,
@@ -12,52 +20,62 @@ export const useFinancialCalculations = () => {
     postRetirementRate: 4,
   });
 
+  // Estado dos projetos (agora populado pela API)
   const [projects, setProjects] = useState<Project[]>([]);
+  
+  // Pegamos o usuário do contexto para saber para quem buscar/salvar os projetos
+  const { user } = useContext(AuthContext)!;
 
+  // Efeito para buscar os projetos do usuário quando o hook é inicializado
+  useEffect(() => {
+    if (user?.id) {
+      const fetchProjects = async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/projects/${user.id}`);
+          // A API retorna o _id do mongo, mas o frontend pode usar 'id'. Mapeamos para garantir compatibilidade.
+          const projectsWithId = response.data.map((p: any) => ({ ...p, id: p._id }));
+          setProjects(projectsWithId);
+        } catch (error) {
+          console.error("Erro ao buscar projetos:", error);
+          toast.error("Não foi possível carregar seus projetos.");
+        }
+      };
+      fetchProjects();
+    }
+  }, [user]); // Roda sempre que o usuário (logado) mudar
+
+
+  // O cálculo do gráfico não muda, ele apenas usará a lista de 'projects' vinda do backend
   const chartData = useMemo(() => {
     const data: ChartData[] = [];
     const { currentAge, retirementAge, desiredIncome, otherIncomes, monthlyInvestment, accumulationRate, postRetirementRate } = financialData;
     
-    // Calcular projetos ativos
     const activeProjects = projects.filter(p => p.isActive);
     
-    // Calcular aposentadoria ideal (patrimônio necessário)
     const rendaLiquidaNecessaria = Math.max(0, desiredIncome - otherIncomes);
     const aposentadoriaIdeal = rendaLiquidaNecessaria > 0 ? (rendaLiquidaNecessaria * 12) / (postRetirementRate / 100) : 0;
     
-    // Inicializar variáveis
-    let patrimonioPrincipal = 0; // Soma total dos aportes
-    let patrimonioTotal = 0; // Patrimônio com juros compostos
+    let patrimonioPrincipal = 0;
+    let patrimonioTotal = 0;
     
-    // Gerar dados a partir da idade atual do usuário
     for (let age = currentAge; age <= 100; age++) {
       const yearsFromNow = age - currentAge;
       const currentYear = new Date().getFullYear() + yearsFromNow;
       
       if (age <= retirementAge) {
-        // FASE DE ACUMULAÇÃO
-        
-        // A) Patrimônio principal investido (azul) - soma simples dos aportes
-        patrimonioPrincipal += monthlyInvestment * 12;
-        
-        // B) Patrimônio total projetado (verde) - com juros compostos
         if (age === currentAge) {
-          // Primeiro ano
           patrimonioTotal = monthlyInvestment * 12;
         } else {
-          // Aplicar juros no patrimônio anterior e adicionar novos aportes
           patrimonioTotal = patrimonioTotal * (1 + accumulationRate / 100) + (monthlyInvestment * 12);
         }
+        patrimonioPrincipal += monthlyInvestment * 12;
         
-        // Subtrair custos dos projetos ativos no ano específico
         let totalProjectCosts = 0;
-        
         activeProjects.forEach(project => {
           const projectDate = project.startDate.split('/');
           const projectYear = parseInt(projectDate[2]);
           
           if (project.isTermProject) {
-            // Deduzir o valor total apenas na data final (data inicial + quantidade de repetições)
             const finalYear = projectYear + (project.repetition === 'mensal' ? Math.ceil(project.repetitionCount / 12) : project.repetition === 'anual' ? project.repetitionCount : 0);
             if (currentYear === finalYear) {
               totalProjectCosts += project.totalValue;
@@ -66,7 +84,6 @@ export const useFinancialCalculations = () => {
             if (project.repetition === 'unica' && projectYear === currentYear) {
               totalProjectCosts += project.totalValue;
             } else if (project.repetition === 'anual') {
-              // Para projetos anuais, verificar se está no período ativo
               if (currentYear >= projectYear && currentYear < projectYear + project.repetitionCount) {
                 const annualCost = project.totalValue / project.repetitionCount;
                 totalProjectCosts += annualCost;
@@ -75,25 +92,19 @@ export const useFinancialCalculations = () => {
           }
         });
         
-        // Aplicar custos dos projetos
         patrimonioTotal = Math.max(0, patrimonioTotal - totalProjectCosts);
         patrimonioPrincipal = Math.max(0, patrimonioPrincipal - totalProjectCosts);
         
       } else {
-        // FASE PÓS-APOSENTADORIA - apenas retiradas
         const retiradaAnual = rendaLiquidaNecessaria * 12;
-        
-        // Aplicar juros e subtrair retiradas
         patrimonioTotal = Math.max(0, patrimonioTotal * (1 + postRetirementRate / 100) - retiradaAnual);
-        
-        // Patrimônio principal não cresce mais após aposentadoria (mantém valor final)
       }
       
       data.push({
         age,
         patrimonioTotal: Math.max(0, patrimonioTotal),
         patrimonioPrincipal: Math.max(0, patrimonioPrincipal),
-        aposentadoriaIdeal: aposentadoriaIdeal, // Valor constante
+        aposentadoriaIdeal: aposentadoriaIdeal,
       });
     }
     
@@ -104,32 +115,87 @@ export const useFinancialCalculations = () => {
     setFinancialData(prev => ({ ...prev, ...updates }));
   };
 
-  const addProject = (project: Omit<Project, 'id'>) => {
-    const newProject = {
-      ...project,
-      id: Date.now().toString(),
+  // --- Funções de Projeto Refatoradas para usar a API ---
+
+  const addProject = async (projectData: Project) => {
+  if (!user?.id) {
+    toast.error("Usuário não autenticado.");
+    return;
+  }
+  try {
+    // A MÁGICA ACONTECE AQUI:
+    // Usamos a desestruturação para separar o 'id' do resto dos dados do projeto.
+    const { id, ...restOfProject } = projectData;
+
+    // O novo payload contém apenas os dados que o backend conhece, mais o ID do usuário.
+    const payload = { 
+      ...restOfProject, 
+      user: user.id,
     };
-    setProjects(prev => [...prev, newProject]);
+    
+
+    const response = await axios.post(`${API_BASE_URL}/api/projects`, payload);
+    
+    const newProjectFromApi = { ...response.data, id: response.data._id };
+    setProjects(prev => [...prev, newProjectFromApi]);
+    
+    // A notificação de sucesso já está na página Futuro.tsx
+    
+  } catch (error) {
+    console.error("Erro detalhado do Axios:", error);
+    toast.error("Erro ao salvar o novo projeto.");
+  }
+};
+
+// NOVO: Função para atualizar um projeto existente
+const updateProject = async (id: string, updates: Partial<Project>) => {
+  try {
+    // Faz a chamada PUT para a sua API, conforme definido no backend
+    const response = await axios.put(`${API_BASE_URL}/api/projects/${id}`, updates);
+    
+    // Converte o _id do MongoDB para id para manter a consistência no frontend
+    const updatedProjectFromApi = { ...response.data, id: response.data._id };
+
+    // Atualiza a lista de projetos no estado local
+    setProjects(prev => 
+      prev.map(p => (p.id === id ? updatedProjectFromApi : p))
+    );
+    
+    // A notificação de sucesso já está no Index.tsx, então não precisa aqui.
+
+  } catch (error) {
+    console.error("Erro ao atualizar projeto:", error);
+    toast.error("Não foi possível salvar as alterações do projeto.");
+  }
+};
+
+
+  const toggleProject = async (id: string) => {
+    try {
+        const response = await axios.patch(`${API_BASE_URL}/api/projects/toggle/${id}`);
+        const toggledProject = { ...response.data, id: response.data._id };
+        setProjects(prev => prev.map(p => p.id === id ? toggledProject : p));
+    } catch (error) {
+        toast.error("Erro ao ativar/desativar o projeto.");
+    }
   };
 
-  const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const deleteProject = async (id: string) => {
+    if(!window.confirm("Tem certeza que deseja deletar este projeto?")) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/api/projects/${id}`);
+      setProjects(prev => prev.filter(p => p.id !== id)); // Usa o ID local para remover da lista
+      toast.success("Projeto deletado com sucesso.");
+    } catch (error) {
+      toast.error("Erro ao deletar o projeto.");
+    }
   };
 
-  const toggleProject = (id: string) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p));
-  };
-
-  const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
-  };
-
-  // Cálculos derivados
+  // Cálculos derivados (não mudam)
   const retirementData = chartData.find(d => d.age === financialData.retirementAge);
   const finalPatrimony = retirementData?.patrimonioTotal || 0;
   const targetAge = chartData.find(d => d.patrimonioTotal >= d.aposentadoriaIdeal)?.age || 100;
   
-  // Cálculo do aporte mensal necessário para atingir a aposentadoria ideal
   const rendaLiquidaNecessaria = Math.max(0, financialData.desiredIncome - financialData.otherIncomes);
   const patrimonioNecessario = rendaLiquidaNecessaria > 0 ? (rendaLiquidaNecessaria * 12) / (financialData.postRetirementRate / 100) : 0;
   const anosParaAposentadoria = financialData.retirementAge - financialData.currentAge;
@@ -145,8 +211,8 @@ export const useFinancialCalculations = () => {
     projects,
     chartData,
     updateFinancialData,
-    addProject,
     updateProject,
+    addProject,
     toggleProject,
     deleteProject,
     finalPatrimony,
