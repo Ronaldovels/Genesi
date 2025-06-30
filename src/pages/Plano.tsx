@@ -9,6 +9,7 @@ import { CategoryModal } from '../components/componentsplano/CategoryModal';
 import { LimitModal } from '../components/componentsplano/LimitModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+
 // Interfaces
 interface CategoryData {
   _id: string; 
@@ -32,6 +33,9 @@ const generateColor = (index: number): string => {
   const hue = (index * 137.508) % 360; 
   return `hsl(${hue}, 70%, 50%)`;
 };
+
+const API_BASE_URL = import.meta.env.VITE_URL;
+
 
 // Função para determinar o aviso de limite
 const getLimitWarning = (spent: number, limit: number) => {
@@ -68,7 +72,7 @@ const Plano = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`/api/finance/category-summary/${selectedAccount._id}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/finance/category-summary/${selectedAccount._id}`, {
         headers: { 'ngrok-skip-browser-warning': 'true' },
         params: { month: selectedMonth, year: selectedYear }
       });
@@ -98,7 +102,7 @@ const Plano = () => {
       return;
     }
     try {
-      await axios.post('/api/categories/assign', {
+      await axios.post(`${API_BASE_URL}/api/categories/assign`, {
         userId: user.id,
         categoryName: data.name,
         limit: data.limit
@@ -119,7 +123,7 @@ const Plano = () => {
       return;
     }
     try {
-      await axios.delete(`/api/categories/assign/${linkId}`);
+      await axios.delete(`${API_BASE_URL}/api/categories/assign/${linkId}`);
       toast.success(`Categoria "${categoryName}" removida.`);
       fetchCategorySummary();
     } catch (error: any) {
@@ -136,7 +140,7 @@ const Plano = () => {
   const handleUpdateLimit = async (newLimit: number) => {
     if (!editingCategory) return;
     try {
-      await axios.put(`/api/categories/assign/${editingCategory._id}`, { limit: newLimit });
+      await axios.put(`${API_BASE_URL}/api/categories/assign/${editingCategory._id}`, { limit: newLimit });
       toast.success(`Limite de "${editingCategory.name}" atualizado!`);
       setIsLimitModalOpen(false);
       fetchCategorySummary();

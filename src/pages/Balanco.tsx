@@ -16,6 +16,8 @@ const generateColor = (index: number): string => {
   return `hsl(${hue}, 70%, 50%)`;
 };
 
+const API_BASE_URL = import.meta.env.VITE_URL;
+
 const Balanco = () => {
   const { selectedAccount } = useContext(AuthContext)!;
   const [loading, setLoading] = useState(true);
@@ -34,8 +36,8 @@ const Balanco = () => {
     setLoading(true);
     try {
       const [summaryRes, categoryRes] = await Promise.all([
-        axios.get(`/api/finance/summary/${selectedAccount._id}`, { params: { month, year } }),
-        axios.get(`/api/finance/category-summary/${selectedAccount._id}`, { params: { month, year } })
+        axios.get(`${API_BASE_URL}/api/finance/summary/${selectedAccount._id}`, { params: { month, year } }),
+        axios.get(`${API_BASE_URL}/api/finance/category-summary/${selectedAccount._id}`, { params: { month, year } })
       ]);
       
       // --- ETAPA DE HIGIENIZAÇÃO DOS DADOS ---
