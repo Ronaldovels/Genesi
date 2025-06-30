@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Plano from "./pages/Plano";
+import Balanco from './pages/Balanco'; 
 import Futuro from "./pages/Futuro";
 import Investimentos from "./pages/Investimentos";
 import InsightsPage from "./pages/Insights";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/plano" element={<Plano />} />
+              <Route path="/balanco" element={<Balanco />} />
               <Route path="/futuro" element={<Futuro />} />
               <Route path="/investimentos" element={<Investimentos />} />
               <Route path="/insights" element={<InsightsPage />} />
