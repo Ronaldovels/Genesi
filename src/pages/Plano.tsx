@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieLabelRenderProps } from 'recharts';
-import { Plus, TrendingUp, Trash2, AlertTriangle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, PieLabelRenderProps } from 'recharts';
+import { Plus, Trash2, AlertTriangle, Pencil } from 'lucide-react';
 import axios from 'axios';
 import { AuthContext } from '../contexts/AuthContext';
 import { Skeleton } from '../components/ui/skeleton';
 import { toast } from 'sonner';
 import { CategoryModal } from '../components/componentsplano/CategoryModal';
 import { LimitModal } from '../components/componentsplano/LimitModal';
-import { CategoryProgressBar } from '../components/componentsplano/CategoryProgressBar'; // NOVO: Import da barra de progresso
+import { CategoryProgressBar } from '../components/componentsplano/CategoryProgressBar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DespesaProgramadaModal, DespesaProgramadaData } from '../components/componentsplano/DespesaProgramadaModal';
 
 
 // Interfaces
@@ -18,6 +19,13 @@ interface CategoryData {
   value: number;
   color: string;
   limit: number;
+}
+
+// ADICIONADO: Interface para a lista simples de categorias
+interface SimpleCategory {
+  _id: string;
+  name: string;
+  color?: string; // Cor é opcional, mas útil para exibição
 }
 
 interface RechartsPayload {
@@ -51,7 +59,7 @@ const getLimitWarning = (spent: number, limit: number) => {
 };
 
 const Plano = () => {
-  const [viewMode, setViewMode] = useState<'pie' | 'bar'>('pie');
+  // Estados existentes
   const [categoriesData, setCategoriesData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,42 +69,71 @@ const Plano = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
+  // ATUALIZADO: Tipos e estados para a nova funcionalidade
+  const [recurringExpenses, setRecurringExpenses] = useState<(DespesaProgramadaData & { category: SimpleCategory })[]>([]);
+  const [allCategories, setAllCategories] = useState<SimpleCategory[]>([]);
+  const [isDespesaModalOpen, setIsDespesaModalOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<(DespesaProgramadaData & { category: SimpleCategory }) | null>(null);
+
   const authContext = useContext(AuthContext);
   if (!authContext) { throw new Error('AuthContext não foi encontrado'); }
   const { selectedAccount, user } = authContext;
 
   const fetchCategorySummary = useCallback(async () => {
-    if (!selectedAccount) {
-      setLoading(false);
-      setCategoriesData([]);
-      return;
-    }
-    setLoading(true);
+    if (!selectedAccount) { setCategoriesData([]); return; }
     setError(null);
     try {
       const response = await axios.get(`${API_BASE_URL}/api/finance/category-summary/${selectedAccount._id}`, {
         headers: { 'ngrok-skip-browser-warning': 'true' },
         params: { month: selectedMonth, year: selectedYear }
       });
-      const dataWithColors: CategoryData[] = response.data.map((item: { _id: string, name: string, total: number, limit: number }, index: number) => ({
-        _id: item._id,
-        name: item.name,
-        value: item.total,
-        limit: item.limit,
-        color: generateColor(index),
+      const dataWithColors: CategoryData[] = response.data.map((item: any, index: number) => ({
+        _id: item._id, name: item.name, value: item.total, limit: item.limit, color: generateColor(index),
       }));
       setCategoriesData(dataWithColors);
     } catch (err) {
       console.error("Erro ao buscar resumo de categorias:", err);
       setError("Não foi possível carregar os dados de categorias.");
-    } finally {
-      setLoading(false);
     }
   }, [selectedAccount, selectedMonth, selectedYear]);
 
+  const fetchRecurringExpenses = useCallback(async () => {
+    if (!selectedAccount) { setRecurringExpenses([]); return; }
+    try {
+        const response = await axios.get(`${API_BASE_URL}/api/recurring-expenses/account/${selectedAccount._id}`);
+        setRecurringExpenses(response.data);
+    } catch (err) {
+        console.error("Erro ao buscar despesas programadas:", err);
+        toast.error("Não foi possível carregar as despesas programadas.");
+    }
+  }, [selectedAccount]);
+
+  // ADICIONADO: Função para buscar todas as categorias do usuário
+  const fetchAllUserCategories = useCallback(async () => {
+    if (!user) { setAllCategories([]); return; }
+    try {
+        // Assumindo que você tenha uma rota como /api/categories/user/:userId
+        const response = await axios.get(`${API_BASE_URL}/api/categories/user/${user.id}`);
+        setAllCategories(response.data);
+    } catch (err) {
+        console.error("Erro ao buscar a lista de categorias:", err);
+        toast.error("Não foi possível carregar suas categorias.");
+    }
+  }, [user]);
+
   useEffect(() => {
-    fetchCategorySummary();
-  }, [fetchCategorySummary]);
+    const fetchAllData = async () => {
+        if (!selectedAccount || !user) { setLoading(false); return; }
+        setLoading(true);
+        await Promise.all([
+            fetchCategorySummary(),
+            fetchRecurringExpenses(),
+            fetchAllUserCategories() // ADICIONADO: Busca a lista de categorias
+        ]);
+        setLoading(false);
+    };
+    fetchAllData();
+  }, [fetchCategorySummary, fetchRecurringExpenses, fetchAllUserCategories, selectedAccount, user]);
 
   const handleAddCategory = async (data: { name: string, limit: number }, isSuggestion = false) => {
     if (!user?.id) {
@@ -113,7 +150,8 @@ const Plano = () => {
       if (!isSuggestion) {
         setIsCategoryModalOpen(false);
       }
-      fetchCategorySummary();
+      // Re-busca os dados relevantes
+      await Promise.all([fetchCategorySummary(), fetchAllUserCategories()]);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || `Erro ao adicionar "${data.name}"`;
       toast.error(errorMessage);
@@ -127,7 +165,8 @@ const Plano = () => {
     try {
       await axios.delete(`${API_BASE_URL}/api/categories/assign/${linkId}`);
       toast.success(`Categoria "${categoryName}" removida.`);
-      fetchCategorySummary();
+      // Re-busca os dados relevantes
+      await Promise.all([fetchCategorySummary(), fetchAllUserCategories()]);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Erro ao remover categoria.";
       toast.error(errorMessage);
@@ -150,6 +189,43 @@ const Plano = () => {
       toast.error(error.response?.data?.message || "Erro ao atualizar limite.");
     }
   };
+
+  const handleAddOrUpdateExpense = async (data: DespesaProgramadaData) => {
+    if (!user?.id || !selectedAccount?._id) { toast.error("Usuário ou conta não selecionada."); return; }
+    const payload = { ...data, user: user.id, account: selectedAccount._id };
+    const isEditing = !!data._id;
+    try {
+        if (isEditing) {
+            await axios.put(`${API_BASE_URL}/api/recurring-expenses/${data._id}`, payload);
+            toast.success(`Despesa "${data.name}" atualizada!`);
+        } else {
+            await axios.post(`${API_BASE_URL}/api/recurring-expenses`, payload);
+            toast.success(`Despesa "${data.name}" adicionada!`);
+        }
+        fetchRecurringExpenses();
+        setIsDespesaModalOpen(false);
+        setEditingExpense(null);
+    } catch (error: any) {
+        const msg = error.response?.data?.message || `Erro ao salvar a despesa.`;
+        toast.error(msg);
+    }
+  };
+
+  const handleDeleteExpense = async (expense: DespesaProgramadaData) => {
+      if (!window.confirm(`Tem certeza que deseja remover a despesa programada "${expense.name}"?`)) return;
+      try {
+          await axios.delete(`${API_BASE_URL}/api/recurring-expenses/${expense._id}`);
+          toast.success(`Despesa "${expense.name}" removida.`);
+          fetchRecurringExpenses();
+      } catch (error: any) {
+          toast.error(error.response?.data?.message || "Erro ao remover despesa.");
+      }
+  };
+
+  const openEditExpenseModal = (expense: DespesaProgramadaData & { category: SimpleCategory }) => {
+      setEditingExpense(expense);
+      setIsDespesaModalOpen(true);
+  }
 
   const renderCustomizedLabel = (props: PieLabelRenderProps) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
@@ -198,7 +274,7 @@ const Plano = () => {
 
   const renderCategoryList = () => {
     if (loading) return (<div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>);
-    if (error || categoriesData.length === 0) return <div className="text-center text-white/60">Nenhuma categoria para exibir.</div>;
+    if (!loading && categoriesData.length === 0) return <div className="text-center text-white/60">Nenhuma categoria para exibir.</div>;
     return (
       <div className="space-y-4">
         {categoriesData.map((category) => {
@@ -213,7 +289,6 @@ const Plano = () => {
                 boxShadow: `0 0 15px -5px ${category.color.replace(')', ', 0.6)').replace('hsl', 'hsla')}`
               }}
             >
-              {/* Seção Superior: Nome e Botão de Deletar */}
               <div className="flex items-start justify-between mb-2">
                 <span className="text-white font-semibold text-base">{category.name}</span>
                 <button 
@@ -227,21 +302,13 @@ const Plano = () => {
                   <Trash2 size={16} />
                 </button>
               </div>
-
-              {/* Seção da Barra de Progresso */}
               <div className="space-y-1">
-                <CategoryProgressBar
-                  spent={category.value}
-                  limit={category.limit}
-                  color={category.color}
-                />
+                <CategoryProgressBar spent={category.value} limit={category.limit} color={category.color} />
                 <div className="flex justify-between text-xs text-white/80">
                   <span>R$ {(category.value || 0).toLocaleString('pt-BR')}</span>
                   <span>Limite: R$ {(category.limit || 0).toLocaleString('pt-BR')}</span>
                 </div>
               </div>
-
-              {/* Seção de Aviso (se houver) */}
               {warning && (
                 <div className={`mt-2 flex items-center gap-2 text-xs p-2 rounded-lg bg-black/20 ${warning.colorClass}`}>
                   <AlertTriangle size={14} className={warning.iconColor} />
@@ -255,13 +322,38 @@ const Plano = () => {
     );
   }
 
+  const renderRecurringExpensesList = () => {
+    if (loading) return <Skeleton className="h-24 w-full" />;
+    if (!loading && recurringExpenses.length === 0) {
+        return <p className="text-center text-sm text-white/60 mt-4">Nenhuma despesa programada ainda.</p>;
+    }
+    return (
+        <div className="space-y-3 mt-4">
+            {recurringExpenses.map(expense => (
+                <div key={expense._id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                    <div>
+                        <p className="font-semibold text-white">{expense.name}</p>
+                        <p className="text-xs text-white/70">
+                            <span className="font-medium" style={{ color: expense.category?.color || '#AABBC' }}>{expense.category?.name || 'Sem Categoria'}</span>
+                             - R$ {expense.value.toLocaleString('pt-BR')} (Dia {expense.billingDay})
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/70">
+                        <button onClick={() => openEditExpenseModal(expense)} className="p-2 hover:bg-white/20 rounded-full transition-colors hover:text-white" title="Editar Despesa"><Pencil size={14} /></button>
+                        <button onClick={() => handleDeleteExpense(expense)} className="p-2 hover:bg-red-500/20 rounded-full transition-colors text-red-400 hover:text-red-300" title="Remover Despesa"><Trash2 size={14} /></button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      {/* Header com Filtros */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Plano de Gastos</h1>
-          <p className="text-white/60 text-sm sm:text-base">Visualize e gerencie seus gastos por categoria.</p>
+          <p className="text-white/60 text-sm sm:text-base">Visualize e gerencie seus gastos e despesas programadas.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}>
@@ -287,17 +379,27 @@ const Plano = () => {
         </div>
       </div>
 
-      {/* Chart Container */}
       <div className="genesi-card h-[400px] flex flex-col justify-center">
         {renderContent()}
       </div>
 
-      {/* Categories List & Management */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
         <div className="genesi-card">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Categorias Atuais</h3>
           {renderCategoryList()}
         </div>
+        
+        <div className="genesi-card">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Despesas Programadas</h3>
+            <button 
+                onClick={() => { setEditingExpense(null); setIsDespesaModalOpen(true); }} 
+                className="genesi-button w-full mb-4 bg-genesi-blue hover:bg-blue-600 text-sm py-2">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Despesa
+            </button>
+            {renderRecurringExpensesList()}
+        </div>
+
         <div className="genesi-card">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Gerenciar Categorias</h3>
           <button onClick={() => setIsCategoryModalOpen(true)} className="genesi-button w-full mb-4 sm:mb-6 bg-genesi-green hover:bg-genesi-green-dark text-sm sm:text-base py-2 sm:py-3">
@@ -326,6 +428,14 @@ const Plano = () => {
           currentLimit={editingCategory.limit}
         />
       )}
+
+      <DespesaProgramadaModal 
+          isOpen={isDespesaModalOpen}
+          onClose={() => setIsDespesaModalOpen(false)}
+          onSubmit={handleAddOrUpdateExpense}
+          editingExpense={editingExpense}
+          categories={allCategories}
+      />
     </div>
   );
 };
