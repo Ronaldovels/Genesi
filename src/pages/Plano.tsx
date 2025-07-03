@@ -9,7 +9,7 @@ import { CategoryModal } from '../components/componentsplano/CategoryModal';
 import { LimitModal } from '../components/componentsplano/LimitModal';
 import { CategoryProgressBar } from '../components/componentsplano/CategoryProgressBar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DespesaProgramadaModal, DespesaProgramadaData } from '../components/componentsplano/DespesaProgramadaModal';
+import { TransacaoProgramadaModal, TransacaoProgramadaData } from '../components/componentsplano/TransacaoProgramadaModal';
 
 
 // Interfaces
@@ -21,11 +21,10 @@ interface CategoryData {
   limit: number;
 }
 
-// ADICIONADO: Interface para a lista simples de categorias
 interface SimpleCategory {
   _id: string;
   name: string;
-  color?: string; // Cor é opcional, mas útil para exibição
+  color?: string;
 }
 
 interface RechartsPayload {
@@ -69,11 +68,16 @@ const Plano = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
-  // ATUALIZADO: Tipos e estados para a nova funcionalidade
-  const [recurringExpenses, setRecurringExpenses] = useState<(DespesaProgramadaData & { category: SimpleCategory })[]>([]);
+  // Estados para transações programadas
+  const [recurringExpenses, setRecurringExpenses] = useState<(TransacaoProgramadaData & { category?: SimpleCategory })[]>([]);
+  const [recurringIncomes, setRecurringIncomes] = useState<TransacaoProgramadaData[]>([]);
   const [allCategories, setAllCategories] = useState<SimpleCategory[]>([]);
-  const [isDespesaModalOpen, setIsDespesaModalOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<(DespesaProgramadaData & { category: SimpleCategory }) | null>(null);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<(TransacaoProgramadaData & { category?: SimpleCategory }) | null>(null);
+  
+  // Novos estados para UI
+  const [activeTab, setActiveTab] = useState<'despesas' | 'entradas'>('despesas');
+  const [modalType, setModalType] = useState<'entrada' | 'saida'>('saida');
 
   const authContext = useContext(AuthContext);
   if (!authContext) { throw new Error('AuthContext não foi encontrado'); }
@@ -103,16 +107,23 @@ const Plano = () => {
         const response = await axios.get(`${API_BASE_URL}/api/recurring-expenses/account/${selectedAccount._id}`);
         setRecurringExpenses(response.data);
     } catch (err) {
-        console.error("Erro ao buscar despesas programadas:", err);
         toast.error("Não foi possível carregar as despesas programadas.");
     }
   }, [selectedAccount]);
 
-  // ADICIONADO: Função para buscar todas as categorias do usuário
+  const fetchRecurringIncomes = useCallback(async () => {
+    if (!selectedAccount) { setRecurringIncomes([]); return; }
+    try {
+        const response = await axios.get(`${API_BASE_URL}/api/recurring-incomes/account/${selectedAccount._id}`);
+        setRecurringIncomes(response.data);
+    } catch (err) {
+        toast.error("Não foi possível carregar as entradas programadas.");
+    }
+  }, [selectedAccount]);
+
   const fetchAllUserCategories = useCallback(async () => {
     if (!user) { setAllCategories([]); return; }
     try {
-        // Assumindo que você tenha uma rota como /api/categories/user/:userId
         const response = await axios.get(`${API_BASE_URL}/api/categories/user/${user.id}`);
         setAllCategories(response.data);
     } catch (err) {
@@ -128,48 +139,36 @@ const Plano = () => {
         await Promise.all([
             fetchCategorySummary(),
             fetchRecurringExpenses(),
-            fetchAllUserCategories() // ADICIONADO: Busca a lista de categorias
+            fetchRecurringIncomes(),
+            fetchAllUserCategories()
         ]);
         setLoading(false);
     };
     fetchAllData();
-  }, [fetchCategorySummary, fetchRecurringExpenses, fetchAllUserCategories, selectedAccount, user]);
+  }, [fetchCategorySummary, fetchRecurringExpenses, fetchRecurringIncomes, fetchAllUserCategories, selectedAccount, user]);
 
   const handleAddCategory = async (data: { name: string, limit: number }, isSuggestion = false) => {
-    if (!user?.id) {
-      toast.error("Usuário não encontrado.");
-      return;
-    }
+    if (!user?.id) { toast.error("Usuário não encontrado."); return; }
     try {
       await axios.post(`${API_BASE_URL}/api/categories/assign`, {
-        userId: user.id,
-        categoryName: data.name,
-        limit: data.limit
+        userId: user.id, categoryName: data.name, limit: data.limit
       });
       toast.success(`Categoria "${data.name}" adicionada com sucesso!`);
-      if (!isSuggestion) {
-        setIsCategoryModalOpen(false);
-      }
-      // Re-busca os dados relevantes
+      if (!isSuggestion) setIsCategoryModalOpen(false);
       await Promise.all([fetchCategorySummary(), fetchAllUserCategories()]);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || `Erro ao adicionar "${data.name}"`;
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || `Erro ao adicionar "${data.name}"`);
     }
   };
 
   const handleDeleteCategory = async (linkId: string, categoryName: string) => {
-    if (!window.confirm(`Tem certeza que deseja remover a categoria "${categoryName}"? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
+    if (!window.confirm(`Tem certeza que deseja remover a categoria "${categoryName}"?`)) return;
     try {
       await axios.delete(`${API_BASE_URL}/api/categories/assign/${linkId}`);
       toast.success(`Categoria "${categoryName}" removida.`);
-      // Re-busca os dados relevantes
       await Promise.all([fetchCategorySummary(), fetchAllUserCategories()]);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Erro ao remover categoria.";
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || "Erro ao remover categoria.");
     }
   };
   
@@ -190,42 +189,64 @@ const Plano = () => {
     }
   };
 
-  const handleAddOrUpdateExpense = async (data: DespesaProgramadaData) => {
+  const handleAddOrUpdateTransaction = async (data: TransacaoProgramadaData) => {
     if (!user?.id || !selectedAccount?._id) { toast.error("Usuário ou conta não selecionada."); return; }
+    
+    const endpointType = data.type === 'entrada' ? 'recurring-incomes' : 'recurring-expenses';
     const payload = { ...data, user: user.id, account: selectedAccount._id };
     const isEditing = !!data._id;
+
     try {
         if (isEditing) {
-            await axios.put(`${API_BASE_URL}/api/recurring-expenses/${data._id}`, payload);
-            toast.success(`Despesa "${data.name}" atualizada!`);
+            await axios.put(`${API_BASE_URL}/api/${endpointType}/${data._id}`, payload);
+            toast.success(`Transação "${data.name}" atualizada!`);
         } else {
-            await axios.post(`${API_BASE_URL}/api/recurring-expenses`, payload);
-            toast.success(`Despesa "${data.name}" adicionada!`);
+            await axios.post(`${API_BASE_URL}/api/${endpointType}`, payload);
+            toast.success(`Transação "${data.name}" adicionada!`);
         }
-        fetchRecurringExpenses();
-        setIsDespesaModalOpen(false);
-        setEditingExpense(null);
+        
+        if (data.type === 'entrada') {
+            fetchRecurringIncomes();
+        } else {
+            fetchRecurringExpenses();
+        }
+
+        setIsTransactionModalOpen(false);
+        setEditingTransaction(null);
     } catch (error: any) {
-        const msg = error.response?.data?.message || `Erro ao salvar a despesa.`;
-        toast.error(msg);
+        toast.error(error.response?.data?.message || `Erro ao salvar a transação.`);
     }
   };
 
-  const handleDeleteExpense = async (expense: DespesaProgramadaData) => {
-      if (!window.confirm(`Tem certeza que deseja remover a despesa programada "${expense.name}"?`)) return;
+  const handleDeleteTransaction = async (transaction: TransacaoProgramadaData) => {
+      if (!window.confirm(`Tem certeza que deseja remover "${transaction.name}"?`)) return;
+      
+      const endpointType = transaction.type === 'saida' ? 'recurring-expenses' : 'recurring-incomes';
+      
       try {
-          await axios.delete(`${API_BASE_URL}/api/recurring-expenses/${expense._id}`);
-          toast.success(`Despesa "${expense.name}" removida.`);
-          fetchRecurringExpenses();
+          await axios.delete(`${API_BASE_URL}/api/${endpointType}/${transaction._id}`);
+          toast.success(`"${transaction.name}" removido(a).`);
+          if (transaction.type === 'entrada') {
+              fetchRecurringIncomes();
+          } else {
+              fetchRecurringExpenses();
+          }
       } catch (error: any) {
-          toast.error(error.response?.data?.message || "Erro ao remover despesa.");
+          toast.error(error.response?.data?.message || "Erro ao remover.");
       }
   };
 
-  const openEditExpenseModal = (expense: DespesaProgramadaData & { category: SimpleCategory }) => {
-      setEditingExpense(expense);
-      setIsDespesaModalOpen(true);
-  }
+  const openAddModal = (type: 'entrada' | 'saida') => {
+    setModalType(type);
+    setEditingTransaction(null);
+    setIsTransactionModalOpen(true);
+  };
+
+  const openEditModal = (transaction: any, type: 'entrada' | 'saida') => {
+    setModalType(type);
+    setEditingTransaction(transaction);
+    setIsTransactionModalOpen(true);
+  };
 
   const renderCustomizedLabel = (props: PieLabelRenderProps) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
@@ -324,23 +345,44 @@ const Plano = () => {
 
   const renderRecurringExpensesList = () => {
     if (loading) return <Skeleton className="h-24 w-full" />;
-    if (!loading && recurringExpenses.length === 0) {
-        return <p className="text-center text-sm text-white/60 mt-4">Nenhuma despesa programada ainda.</p>;
-    }
+    if (!loading && recurringExpenses.length === 0) return <p className="text-center text-sm text-white/60 mt-4">Nenhuma despesa programada.</p>;
     return (
         <div className="space-y-3 mt-4">
             {recurringExpenses.map(expense => (
-                <div key={expense._id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                <div key={expense._id} className="flex items-center justify-between p-3 rounded-lg bg-red-500/10">
                     <div>
                         <p className="font-semibold text-white">{expense.name}</p>
-                        <p className="text-xs text-white/70">
-                            <span className="font-medium" style={{ color: expense.category?.color || '#AABBC' }}>{expense.category?.name || 'Sem Categoria'}</span>
+                        <p className="text-xs text-red-300">
+                            <span className="font-medium">{expense.category?.name || 'Sem Categoria'}</span>
                              - R$ {expense.value.toLocaleString('pt-BR')} (Dia {expense.billingDay})
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-white/70">
-                        <button onClick={() => openEditExpenseModal(expense)} className="p-2 hover:bg-white/20 rounded-full transition-colors hover:text-white" title="Editar Despesa"><Pencil size={14} /></button>
-                        <button onClick={() => handleDeleteExpense(expense)} className="p-2 hover:bg-red-500/20 rounded-full transition-colors text-red-400 hover:text-red-300" title="Remover Despesa"><Trash2 size={14} /></button>
+                        <button onClick={() => openEditModal(expense, 'saida')} title="Editar Despesa"><Pencil size={14} /></button>
+                        <button onClick={() => handleDeleteTransaction(expense)} title="Remover Despesa"><Trash2 size={14} /></button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+  };
+
+  const renderRecurringIncomesList = () => {
+    if (loading) return <Skeleton className="h-24 w-full" />;
+    if (!loading && recurringIncomes.length === 0) return <p className="text-center text-sm text-white/60 mt-4">Nenhuma entrada programada.</p>;
+    return (
+        <div className="space-y-3 mt-4">
+            {recurringIncomes.map(income => (
+                <div key={income._id} className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
+                    <div>
+                        <p className="font-semibold text-white">{income.name}</p>
+                        <p className="text-xs text-green-300">
+                            + R$ {income.value.toLocaleString('pt-BR')} (Dia {income.billingDay})
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-white/70">
+                        <button onClick={() => openEditModal(income, 'entrada')} title="Editar Entrada"><Pencil size={14} /></button>
+                        <button onClick={() => handleDeleteTransaction(income)} title="Remover Entrada"><Trash2 size={14} /></button>
                     </div>
                 </div>
             ))}
@@ -353,7 +395,7 @@ const Plano = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Plano de Gastos</h1>
-          <p className="text-white/60 text-sm sm:text-base">Visualize e gerencie seus gastos e despesas programadas.</p>
+          <p className="text-white/60 text-sm sm:text-base">Visualize e gerencie seus gastos e transações programadas.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}>
@@ -383,23 +425,30 @@ const Plano = () => {
         {renderContent()}
       </div>
 
+      {/* ATUALIZADO: Layout de grid com 3 colunas */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+        {/* Coluna 1: Categorias do Mês */}
         <div className="genesi-card">
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Categorias Atuais</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Categorias do Mês</h3>
           {renderCategoryList()}
         </div>
         
+        {/* Coluna 2: Transações Programadas com Abas */}
         <div className="genesi-card">
-            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Despesas Programadas</h3>
-            <button 
-                onClick={() => { setEditingExpense(null); setIsDespesaModalOpen(true); }} 
-                className="genesi-button w-full mb-4 bg-genesi-blue hover:bg-blue-600 text-sm py-2">
+            <div className="flex border-b border-white/10 mb-4">
+                <button onClick={() => setActiveTab('despesas')} className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'despesas' ? 'text-white border-b-2 border-blue-500' : 'text-white/60 hover:text-white'}`}>Despesas Programadas</button>
+                <button onClick={() => setActiveTab('entradas')} className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'entradas' ? 'text-white border-b-2 border-green-500' : 'text-white/60 hover:text-white'}`}>Entradas Programadas</button>
+            </div>
+
+            <button onClick={() => openAddModal(activeTab === 'despesas' ? 'saida' : 'entrada')} className="genesi-button w-full mb-4 bg-genesi-blue hover:bg-blue-600 text-sm py-2">
                 <Plus className="w-4 h-4 mr-2" />
-                Adicionar Despesa
+                Adicionar {activeTab === 'despesas' ? 'Nova Despesa' : 'Nova Entrada'}
             </button>
-            {renderRecurringExpensesList()}
+
+            {activeTab === 'despesas' ? renderRecurringExpensesList() : renderRecurringIncomesList()}
         </div>
 
+        {/* Coluna 3: Gerenciar Categorias (Reintroduzida) */}
         <div className="genesi-card">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Gerenciar Categorias</h3>
           <button onClick={() => setIsCategoryModalOpen(true)} className="genesi-button w-full mb-4 sm:mb-6 bg-genesi-green hover:bg-genesi-green-dark text-sm sm:text-base py-2 sm:py-3">
@@ -429,11 +478,12 @@ const Plano = () => {
         />
       )}
 
-      <DespesaProgramadaModal 
-          isOpen={isDespesaModalOpen}
-          onClose={() => setIsDespesaModalOpen(false)}
-          onSubmit={handleAddOrUpdateExpense}
-          editingExpense={editingExpense}
+      <TransacaoProgramadaModal 
+          isOpen={isTransactionModalOpen}
+          onClose={() => setIsTransactionModalOpen(false)}
+          onSubmit={handleAddOrUpdateTransaction}
+          transactionType={modalType}
+          editingTransaction={editingTransaction}
           categories={allCategories}
       />
     </div>
