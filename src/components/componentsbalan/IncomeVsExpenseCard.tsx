@@ -21,7 +21,7 @@ export const IncomeVsExpenseCard = ({ data }: Props) => {
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
           <XAxis type="number" stroke="#9ca3af" tickFormatter={(value) => `R$${value / 1000}k`} />
           <YAxis type="category" dataKey="name" stroke="#9ca3af" width={60} />
-          <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} />
+          <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }} />
           <Bar dataKey="valor" barSize={35} />
         </BarChart>
       </ResponsiveContainer>

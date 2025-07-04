@@ -146,3 +146,7 @@
   border-radius: 9999px;
   transition: width 0.3s ease-in-out;
 }
+
+html, body {
+   background-color: #1f2937;
+}

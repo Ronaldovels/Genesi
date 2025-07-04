@@ -49,7 +49,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Seção principal com gráfico e controles - altura reduzida */}
-      <div className="h-[85vh] flex w-full">
+      <div className="flex flex-col lg:flex-row w-full">
         {/* Gráfico - flex-1 para ocupar espaço restante */}
         <div className="flex-1 bg-slate-800 p-6 flex flex-col">
           <div className="mb-4">
@@ -58,8 +58,8 @@ const Index = () => {
           
           {/* Controles de período na parte superior direita do gráfico */}
           <div className="flex justify-end mb-4">
-            <div className="flex gap-2 items-center">
-              <span className="text-sm text-slate-400 mr-2">Período:</span>
+            <div className="flex gap-0.5 md:gap-2 lg:gap-2 items-center">
+              <span className="text-sm text-slate-400 mr-1">Período:</span>
               {[
                 { label: '2 anos', value: 2 },
                 { label: '5 anos', value: 5 },
@@ -77,13 +77,13 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="flex-1">
+          <div className="flex-1 h-80">
             <FinancialChart data={chartData} currentAge={financialData.currentAge} />
           </div>
         </div>
 
         {/* Controles - largura fixa */}
-        <div className="w-80 bg-slate-800 p-6 flex flex-col">
+        <div className="w-100 lg:w-80 bg-slate-800 p-6 flex flex-col">
           {/* Mensagem de investimento necessário */}
           <div className="mb-6">
             <div className="bg-emerald-900/30 p-4 rounded-lg border border-emerald-700/50">
