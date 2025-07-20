@@ -77,7 +77,7 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="flex-1">
+          <div className="h-80">
             <FinancialChart data={chartData} currentAge={financialData.currentAge} />
           </div>
         </div>
