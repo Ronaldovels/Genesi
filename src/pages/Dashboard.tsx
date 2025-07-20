@@ -8,6 +8,8 @@ import { AccountModal } from '../components/AccountModal';
 import { InvestmentModal } from '../components/InvestmentModal';
 import { toast } from 'sonner';
 import axios from 'axios'
+import { Dialog } from '@headlessui/react';
+import { parseISO } from 'date-fns';
 
 const API_BASE_URL = import.meta.env.VITE_URL; 
 
@@ -55,6 +57,14 @@ const Dashboard = () => {
   
   const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
   const [investmentAccounts, setInvestmentAccounts] = useState<InvestmentAccount[]>([]);
+
+  // Estado do modal de extrato
+  const [extractModalOpen, setExtractModalOpen] = useState(false);
+  const [extractType, setExtractType] = useState<'entrada' | 'saida' | 'investimento' | null>(null);
+  const [extractData, setExtractData] = useState<any[]>([]);
+  const [extractOrder, setExtractOrder] = useState<'desc' | 'asc'>('desc');
+  const [extractLoading, setExtractLoading] = useState(false);
+  const [extractPrevData, setExtractPrevData] = useState<any[]>([]);
 
   // Garantir que a primeira conta seja selecionada ao carregar
   useEffect(() => {
@@ -236,6 +246,43 @@ const Dashboard = () => {
      { title: 'Investimentos', value: `R$ ${(totalInvested || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: PiggyBank, color: 'text-purple-400', change: '+0%', trend: 'up' as const }
   ];
 
+  // Função para abrir modal de extrato
+  const handleOpenExtractModal = async (type: 'entrada' | 'saida' | 'investimento') => {
+    setExtractType(type);
+    setExtractModalOpen(true);
+    setExtractLoading(true);
+    let url = '';
+    if (type === 'investimento') {
+      url = `${API_BASE_URL}/api/investment/${selectedAccount?._id}`;
+    } else {
+      url = `${API_BASE_URL}/api/finance/transactions/${selectedAccount?._id}`;
+    }
+    try {
+      // Dados do mês atual
+      const res = await axios.get(url, { params: { month: selectedMonth, year: selectedYear } });
+      let data = res.data;
+      if (type !== 'investimento') {
+        data = data.filter((tx: any) => tx.type === type);
+      }
+      setExtractData(data);
+      // Dados do mês anterior
+      let prevMonth = selectedMonth - 1;
+      let prevYear = selectedYear;
+      if (prevMonth < 1) { prevMonth = 12; prevYear -= 1; }
+      const resPrev = await axios.get(url, { params: { month: prevMonth, year: prevYear } });
+      let prevData = resPrev.data;
+      if (type !== 'investimento') {
+        prevData = prevData.filter((tx: any) => tx.type === type);
+      }
+      setExtractPrevData(prevData);
+    } catch (e) {
+      setExtractData([]);
+      setExtractPrevData([]);
+    } finally {
+      setExtractLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       {/* Header */}
@@ -311,6 +358,12 @@ const Dashboard = () => {
             icon={metric.icon}
             color={metric.color}
             delay={index * 100}
+            onClick={
+              metric.title === 'Entradas' ? () => handleOpenExtractModal('entrada') :
+              metric.title === 'Saídas' ? () => handleOpenExtractModal('saida') :
+              metric.title === 'Investimentos' ? () => handleOpenExtractModal('investimento') :
+              undefined
+            }
           />
         ))}
       </div>
@@ -389,6 +442,124 @@ const Dashboard = () => {
         onSubmit={handleInvestmentSubmit}
         investmentAccounts={investmentAccounts}
       />
+
+      {/* Modal de Extrato */}
+      <Dialog open={extractModalOpen} onClose={() => setExtractModalOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+        <div className="relative bg-[#181f2a] rounded-lg shadow-2xl p-6 w-full max-w-2xl mx-auto z-10" style={{ boxShadow: '0 0 32px 0 rgba(37, 99, 235, 0.5)' }}>
+          <Dialog.Title className="text-xl font-bold text-white mb-2 flex items-center justify-between">
+            {extractType === 'entrada' && 'Entradas'}
+            {extractType === 'saida' && 'Saídas'}
+            {extractType === 'investimento' && 'Investimentos'}
+            <button onClick={() => setExtractModalOpen(false)} className="text-white/60 hover:text-red-400 text-lg ml-2">×</button>
+          </Dialog.Title>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-white/60 text-sm">{selectedMonth}/{selectedYear}</span>
+            <select
+              className="bg-slate-800 text-white/80 rounded px-2 py-1 text-sm border border-white/10"
+              value={extractOrder}
+              onChange={e => setExtractOrder(e.target.value as 'desc' | 'asc')}
+            >
+              <option value="desc">Mais recentes primeiro</option>
+              <option value="asc">Mais antigas primeiro</option>
+            </select>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {extractLoading ? (
+              <div className="text-white/60 py-8 text-center">Carregando...</div>
+            ) : (
+              <>
+                {/* Extrato do mês atual */}
+                {(() => {
+                  // Filtrar por mês/ano selecionado
+                  const filtered = extractData.filter((item: any) => {
+                    const d = parseISO(item.date);
+                    return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear;
+                  });
+                  if (filtered.length === 0) {
+                    return <div className="text-white/60 py-8 text-center">Nenhum registro encontrado.</div>;
+                  }
+                  return (
+                    <ul className="divide-y divide-white/10 mb-8">
+                      {[...filtered].sort((a, b) => {
+                        if (extractOrder === 'desc') {
+                          return new Date(b.date).getTime() - new Date(a.date).getTime();
+                        } else {
+                          return new Date(a.date).getTime() - new Date(b.date).getTime();
+                        }
+                      }).map((item: any) => (
+                        <li key={item._id} className="py-3 flex items-center gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white text-base">
+                                {extractType === 'investimento' ? item.name : item.description}
+                              </span>
+                              <span className="text-xs text-white/40">{new Date(item.date).toLocaleDateString()}</span>
+                            </div>
+                            {extractType === 'investimento' && (
+                              <div className="text-white/60 text-xs">{item.type}</div>
+                            )}
+                          </div>
+                          <div className={`font-bold text-lg ${extractType === 'entrada' ? 'text-green-400' : extractType === 'saida' ? 'text-red-400' : 'text-purple-400'}`}>
+                            {extractType === 'entrada' ? '+' : extractType === 'saida' ? '-' : ''} R$ {item.value ? item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : (item.totalValue ? item.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '')}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                {/* Seção do mês anterior */}
+                {(() => {
+                  // Filtrar por mês anterior
+                  let prevMonth = selectedMonth - 1;
+                  let prevYear = selectedYear;
+                  if (prevMonth < 1) { prevMonth = 12; prevYear -= 1; }
+                  const filteredPrev = extractPrevData.filter((item: any) => {
+                    const d = parseISO(item.date);
+                    return d.getMonth() + 1 === prevMonth && d.getFullYear() === prevYear;
+                  });
+                  if (filteredPrev.length === 0) return null;
+                  return (
+                    <>
+                      <div className="mt-2 mb-2 border-t border-white/10 pt-4 text-white/70 font-semibold bg-[#1e293b]/30 rounded px-2">
+                        {extractType === 'entrada' && 'Entradas do mês passado'}
+                        {extractType === 'saida' && 'Saídas do mês passado'}
+                        {extractType === 'investimento' && 'Investimentos do mês passado'}
+                      </div>
+                      <ul className="divide-y divide-white/10">
+                        {[...filteredPrev].sort((a, b) => {
+                          if (extractOrder === 'desc') {
+                            return new Date(b.date).getTime() - new Date(a.date).getTime();
+                          } else {
+                            return new Date(a.date).getTime() - new Date(b.date).getTime();
+                          }
+                        }).map((item: any) => (
+                          <li key={item._id} className="py-3 flex items-center gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-white text-base">
+                                  {extractType === 'investimento' ? item.name : item.description}
+                                </span>
+                                <span className="text-xs text-white/40">{new Date(item.date).toLocaleDateString()}</span>
+                              </div>
+                              {extractType === 'investimento' && (
+                                <div className="text-white/60 text-xs">{item.type}</div>
+                              )}
+                            </div>
+                            <div className={`font-bold text-lg ${extractType === 'entrada' ? 'text-green-400' : extractType === 'saida' ? 'text-red-400' : 'text-purple-400'}`}>
+                              {extractType === 'entrada' ? '+' : extractType === 'saida' ? '-' : ''} R$ {item.value ? item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : (item.totalValue ? item.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '')}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

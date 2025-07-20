@@ -15,6 +15,7 @@ import Futuro from "./pages/Futuro";
 import Investimentos from "./pages/Investimentos";
 import InsightsPage from "./pages/Insights";
 import NotFound from "./pages/NotFound";
+import ChatPage from "./pages/ChatPage";
 
 // Componentes
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/futuro" element={<Futuro />} />
               <Route path="/investimentos" element={<Investimentos />} />
               <Route path="/insights" element={<InsightsPage />} />
+              <Route path="/chat-adam" element={<ChatPage />} />
             </Route>
 
             {/* Rota de fallback */}

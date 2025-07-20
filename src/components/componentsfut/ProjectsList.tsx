@@ -99,48 +99,24 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
   });
 
   const prioritiesToShow = activePriority === 'Todas' ? PRIORITIES : [activePriority];
-  
-  // Função auxiliar para melhorar a legibilidade das classes dos botões
-  const getButtonClass = (priority: Priority | 'Todas') => {
-    const baseClasses = "px-4 py-1 rounded text-sm font-medium transition-colors";
-    const isActive = activePriority === priority;
-
-    if (isActive) {
-        if (priority === 'Todas') return `${baseClasses} bg-sky-500 text-white`;
-        return `${baseClasses} ${getPriorityColor(priority)} text-white`;
-    }
-    
-    // Estilo para botões inativos, mais adequado ao tema escuro
-    return `${baseClasses} bg-slate-700 text-slate-300 hover:bg-slate-600`;
-  };
 
   return (
     <div className="space-y-4 bg-slate-900 rounded-xl p-6">
-      
-      <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4">
-        <div>
+      {/* Filtros de prioridade */}
+      <div className="flex gap-2 mb-4">
+        <button
+          className={`px-4 py-1 rounded ${activePriority === 'Todas' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}
+          onClick={() => setActivePriority('Todas')}
+        >Todas</button>
+        {PRIORITIES.map(p => (
           <button
-            className={getButtonClass('Todas')}
-            onClick={() => setActivePriority('Todas')}
-          >
-            Todas
-          </button>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          {PRIORITIES.map(p => (
-            <button
-              key={p}
-              className={getButtonClass(p)}
-              onClick={() => setActivePriority(p)}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+            key={p}
+            className={`px-4 py-1 rounded ${activePriority === p ? getPriorityColor(p) + ' text-white' : 'bg-slate-200 text-slate-700'}`}
+            onClick={() => setActivePriority(p)}
+          >{p}</button>
+        ))}
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {grouped.filter(g => prioritiesToShow.includes(g.priority)).map(group => (
           <div key={group.priority} className="bg-slate-800 rounded-lg p-4 border border-slate-700 flex flex-col">
             {/* Header da prioridade */}
@@ -184,6 +160,7 @@ export const ProjectsList = ({ projects, onToggle, onUpdate, onDelete }: Project
                     </div>
                     <div
                       className="w-full bg-slate-700 rounded-full h-1.5 mb-2"
+                      // 1. Aqui definimos a variável --progress-width com o valor da sua porcentagem
                       style={{ '--progress-width': `${Math.min(100, progressPercentage)}%` } as React.CSSProperties}
                     >
                       <div className="progress-bar-container">

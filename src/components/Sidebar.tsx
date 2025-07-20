@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart, PlusCircle, Lightbulb, Clipboard } from 'lucide-react';
+import { Home, PieChart, Target, TrendingUp, MessageSquare, Mic, LogOut, Sparkles, Heart, PlusCircle, Lightbulb, Clipboard, MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Switch } from './ui/switch';
@@ -118,6 +118,14 @@ const Sidebar = () => {
             </button>
           );
         })}
+        {/* Botão Chat com Adam */}
+        <button
+          onClick={() => handleNavigation('/chat-adam')}
+          className={`nav-item w-full ${location.pathname === '/chat-adam' ? 'active' : ''}`}
+        >
+          <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="text-sm sm:text-base">Chat com Adam</span>
+        </button>
         <Dialog open={openWishDialog} onOpenChange={setOpenWishDialog}>
           <DialogTrigger asChild>
             <button

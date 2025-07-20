@@ -18,30 +18,17 @@ const generateColor = (index: number): string => {
 
 const API_BASE_URL = import.meta.env.VITE_URL;
 
-// ✨ NOVO: Arrays para preencher os seletores
-const meses = [
-    { valor: 1, nome: 'Janeiro' }, { valor: 2, nome: 'Fevereiro' },
-    { valor: 3, nome: 'Março' }, { valor: 4, nome: 'Abril' },
-    { valor: 5, nome: 'Maio' }, { valor: 6, nome: 'Junho' },
-    { valor: 7, nome: 'Julho' }, { valor: 8, nome: 'Agosto' },
-    { valor: 9, nome: 'Setembro' }, { valor: 10, nome: 'Outubro' },
-    { valor: 11, nome: 'Novembro' }, { valor: 12, nome: 'Dezembro' }
-];
-
-const anoAtual = new Date().getFullYear();
-const anos = Array.from({ length: 5 }, (_, i) => anoAtual - i); // Gera os últimos 5 anos
-
 const Balanco = () => {
   const { selectedAccount } = useContext(AuthContext)!;
   const [loading, setLoading] = useState(true);
   const [summaryData, setSummaryData] = useState({ entradas: 0, saidas: 0 });
   const [categoryData, setCategoryData] = useState([]);
 
-  // Data e Mês
+  // Data e Mês (pode ser expandido no futuro)
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async () => {
     if (!selectedAccount) {
       setLoading(false);
       return;
@@ -53,19 +40,25 @@ const Balanco = () => {
         axios.get(`${API_BASE_URL}/api/finance/category-summary/${selectedAccount._id}`, { params: { month, year } })
       ]);
       
+      // --- ETAPA DE HIGIENIZAÇÃO DOS DADOS ---
+
+      // Garante que os valores do resumo sejam sempre números
       const sanitizedSummary = {
         entradas: Number(summaryRes.data.entradas) || 0,
         saidas: Number(summaryRes.data.saidas) || 0,
+        // O saldo total não é usado nos cálculos dos gráficos, mas é uma boa prática
       };
 
+      // Garante que os valores das categorias sejam sempre números
       const sanitizedCategoryData = categoryRes.data.map((item: any, index: number) => ({
         _id: item._id,
         name: item.name,
-        value: Number(item.total) || 0,
-        limit: Number(item.limit) || 0,
+        value: Number(item.total) || 0, // Converte para número, se falhar (NaN), usa 0
+        limit: Number(item.limit) || 0, // Converte para número, se falhar (NaN), usa 0
         color: generateColor(index)
       }));
 
+      // Define os estados com os dados já limpos
       setSummaryData(sanitizedSummary);
       setCategoryData(sanitizedCategoryData);
 
@@ -101,37 +94,7 @@ const Balanco = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Balanço Mensal</h1>
           <p className="text-white/60 text-sm sm:text-base">Uma visão geral da sua saúde financeira.</p>
         </div>
-        
-        {/* ✨ NOVO: Seletores de Mês e Ano */}
-        <div className="flex items-center gap-2">
-          <Select 
-            value={String(month)} 
-            onValueChange={(value) => setMonth(Number(value))}
-          >
-            <SelectTrigger className="w-[180px] bg-gray-800 border-gray-700 text-white">
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
-              {meses.map(m => (
-                <SelectItem key={m.valor} value={String(m.valor)}>{m.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select 
-            value={String(year)} 
-            onValueChange={(value) => setYear(Number(value))}
-          >
-            <SelectTrigger className="w-[120px] bg-gray-800 border-gray-700 text-white">
-              <SelectValue placeholder="Ano" />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
-              {anos.map(a => (
-                <SelectItem key={a} value={String(a)}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Adicione seletores de mês/ano aqui se desejar */}
       </div>
 
       {/* Grid de Cards */}

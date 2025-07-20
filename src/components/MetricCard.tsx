@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -10,6 +9,7 @@ interface MetricCardProps {
   icon: LucideIcon;
   color: string;
   delay?: number;
+  onClick?: () => void;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
@@ -19,12 +19,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
   trend,
   icon: Icon,
   color,
-  delay = 0
+  delay = 0,
+  onClick
 }) => {
   return (
     <div 
-      className="metric-card animate-bounce-in"
+      className={`metric-card animate-bounce-in ${onClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.03] transition-all' : ''}`}
       style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
     >
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-lg bg-white/10 ${color}`}>
