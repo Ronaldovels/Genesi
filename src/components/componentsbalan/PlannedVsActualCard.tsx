@@ -22,7 +22,7 @@ export const PlannedVsActualCard = ({ categories }: Props) => {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
               <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} />
               <YAxis stroke="#9ca3af" />
-              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563', color: '#e5e7eb' }} />
               <Legend formatter={(value) => <span className="text-white/80 capitalize">{value}</span>} />
               <Bar dataKey="limit" name="Limite" fill="#4f46e5" />
               <Bar dataKey="value" name="Gasto" fill="#f59e0b" />
